@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AMD-melliott/amd-platform-catalog/catalog/schema/catalog.schema.json",
+  "title": "AMD Platform Catalog",
+  "description": "Formalizes PRD.md §6 (data model). See §6.3 note on device_id.",
+  "type": "object",
+  "required": ["catalog_version", "generated_at", "sources", "gpus", "npus", "notes"],
+  "additionalProperties": false,
+  "properties": {
+    "catalog_version": { "type": "string" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "sources": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/source" }
+    },
+    "gpus": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/gpu_entry" }
+    },
+    "npus": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/npu_entry" }
+    },
+    "notes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/note_entry" }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": ["name", "url", "ref"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "ref": { "type": "string" }
+      }
+    },
+    "gpu_entry": {
+      "type": "object",
+      "description": "PRD §6.3 marks device_id required. gpu-specs.rst itself supplies no PCI device ID; libdrm's amdgpu.ids (joined by normalized marketing name, see match_gpu_device_ids.py) now populates it for entries that resolve unambiguously, but coverage isn't complete (some products aren't in amdgpu.ids yet, some marketing names are ambiguous across device_ids), so it stays NOT required here rather than backfilled with a placeholder.",
+      "required": ["gfx_target", "generation", "product_name", "memory_model", "lifecycle_status"],
+      "additionalProperties": false,
+      "properties": {
+        "device_id": { "type": "string", "pattern": "^[0-9a-fA-F]+$" },
+        "revision_id": { "type": "string", "pattern": "^[0-9a-fA-F]+$" },
+        "gfx_target": { "type": "string" },
+        "generation": { "type": "string" },
+        "product_name": { "type": "string" },
+        "graphics_model": { "type": "string" },
+        "memory_model": { "type": "string", "enum": ["dedicated", "unified"] },
+        "specs": { "type": "object" },
+        "precision_support": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" }
+        },
+        "lifecycle_status": { "type": "string", "enum": ["active", "eos", "unknown"] }
+      }
+    },
+    "npu_entry": {
+      "type": "object",
+      "description": "PRD §6.4: revision_id added and family relaxed to optional 2026-09-02 after ingesting amd/xdna-driver directly -- one device_id (e.g. 0x17f0) binds to several (device_id, revision_id) driver generations, and even then the true marketing family requires a live firmware query the driver source can't give statically. See the §6.4 callout.",
+      "required": ["device_id", "vendor_id", "hw_gen"],
+      "additionalProperties": false,
+      "properties": {
+        "device_id": { "type": "string", "pattern": "^[0-9a-fA-F]+$" },
+        "revision_id": { "type": "string", "pattern": "^[0-9a-fA-F]+$" },
+        "vendor_id": { "type": "string", "pattern": "^[0-9a-fA-F]+$" },
+        "family": { "type": "string" },
+        "hw_gen": { "type": "string" },
+        "llvm_target": { "type": "string" },
+        "associated_gpu_device_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[0-9a-fA-F]+$" }
+        }
+      }
+    },
+    "note_entry": {
+      "type": "object",
+      "required": ["device_id", "field", "note", "validated_on"],
+      "additionalProperties": false,
+      "properties": {
+        "device_id": { "type": "string", "pattern": "^[0-9a-fA-F]+$" },
+        "field": { "type": "string" },
+        "override": {},
+        "note": { "type": "string" },
+        "validated_on": { "type": "string", "format": "date" },
+        "validated_by": { "type": "string" }
+      }
+    }
+  }
+}

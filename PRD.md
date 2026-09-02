@@ -70,11 +70,12 @@ running on real hardware.
 |---|---|---|
 | gpuopen ISA XML + `isa_spec_manager` | **Rejected** — wrong layer | Compiler/disassembler-grade instruction encodings. No device, capability, or memory-model data. |
 | `amdsmi` (`rocm-systems/projects/amdsmi`) | **Reference, not source** | Already multi-language (C/Python/Go/Rust). Resolves `device_id` → `target_graphics_version` and correct VRAM/GTT split at runtime, confirmed live on Strix Halo. Does not decode a generation label or expose NPU/precision data. |
-| LLVM `AMDGPUUsage.html` | **Primary source** | Authoritative gfx-target → product family → generation mapping (RDNA3/3.5/4, CDNA3/4). First to reflect brand-new targets. |
+| LLVM `AMDGPUUsage.html` (ingested from its `.rst` source, `llvm/llvm-project` `llvm/docs/AMDGPUUsage.rst`) | **Primary source (implemented 2026-09-02)** | Authoritative gfx-target → product family → generation mapping (RDNA3/3.5/4, CDNA3/4). First to reflect brand-new targets — confirmed live: lists 20 `gfx_target`s (all of RDNA1, plus forward-looking `gfx1250`/`gfx1310` etc.) that `gpu-specs.rst` doesn't have yet. Ingesting the `.rst` source directly (rather than the rendered `.html`) gives a real pinned commit SHA for `ref` instead of only a fetch-date. |
 | `ROCm/ROCm` `docs/reference/gpu-specs.rst` | **Primary source** | Product name, graphics model, generation, gfx target, and detailed hardware specs (compute units, cache, VRAM) for Instinct/Radeon PRO/Radeon/Ryzen APU, as versioned RST tables. |
 | `ROCm/ROCm` `docs/reference/precision-support.rst` | **Primary source** | Per-generation (CDNA1-4, RDNA2-4) data-type/precision capability matrix (fp8 variants, bf16, tf32, int8, etc.) — genuine "what can it do" data. |
 | `ROCm/ROCm` `docs/reference/gpu-arch/index.md` | **Secondary/reference** | Curated links to AMD white papers and ISA reference PDFs per generation. Unstructured; only worth extracting from if a specific fact is missing elsewhere. |
-| NPU PCI-ID data (Gentoo wiki `User:Lockal/AMDXDNA`, `amd/xdna-driver`) | **Primary source, needs re-verification against upstream driver source** | NPU presence + generation via PCI ID (vendor `1022`), e.g. `1022:1502` (Phoenix/Hawk Point), `1022:17f0` (Strix/Krackan/Strix Halo family, disambiguated by revision). |
+| NPU PCI-ID data — `amd/xdna-driver` (`drivers/accel/amdxdna/amdxdna_pci_drv.c` + per-generation `npuN_regs.c`) | **Primary source (implemented 2026-09-02, superseding the Gentoo wiki mirror)** | NPU presence + driver-generation label (`hw_gen`) via PCI `(device_id, revision_id)`, e.g. `1022:1502` rev `00` (NPU1), `1022:17f0` rev `10`/`11`/`20` (NPU4/5/6, jointly "Strix / Krackan / Strix Halo / Gorgon Point" — the driver itself can't disambiguate further without a live firmware query; see §6.4 callout). The original Gentoo wiki mirror is no longer consulted — going straight to the driver source turned out to have better provenance AND reveal real ambiguities the wiki's simpler mapping had smoothed over. |
+| `libdrm` `data/amdgpu.ids` (`gitlab.freedesktop.org/mesa/libdrm`) | **Primary source (candidate) — closes the GPU `device_id` gap identified below** | AMD-maintained (recent commits by Alex Deucher, `alexander.deucher@amd.com`, "from ROCm 7.2") `device_id, revision_id -> marketing product_name` table. Confirmed live (2026-09-02): `1586`/rev `C1` -> "AMD Radeon 8060S Graphics" (matches Strix Halo), `74A1` -> "AMD Instinct MI300X". Versioned (`1.0.0` header), mechanically parseable (simple comma-delimited text), updated per ROCm release — same trust tier as the other primary sources above. See §6.3 and §11 for the join complexity this introduces. |
 | amdgpu "IP Discovery" (debugfs) | **Noted, not used** | Most authoritative possible source (driver's own runtime hardware discovery), but root-only, undocumented binary format. Impractical for this catalog. |
 | AMD marketing product pages | **Rejected** | No gfx-target/architecture data; marketing TOPS/model-name only. |
 
@@ -122,16 +123,23 @@ have).
 | `precision_support` | object (open-ended booleans keyed by data-type name) | no | Per-type native-support flags sourced from `precision-support.rst`, joined by `generation`. |
 | `lifecycle_status` | enum: `active`, `eos`, `unknown` | yes (defaults `unknown`) | Whether AMD has marked this product retired/end-of-service. See open question in §11. |
 
+> **`device_id` sourcing, partially closed (found 2026-09-02, implemented 2026-09-02).** No source evaluated in §5 originally supplied PCI device IDs for GPUs — `gpu-specs.rst` has no such column, unlike the NPU side which always had a PCI-ID source. `libdrm`'s `data/amdgpu.ids` (added to §5) closes this for products it lists: `ingest_libdrm_amdgpu_ids.py` parses the file, and `match_gpu_device_ids.py` joins it onto `GpuEntry` rows by normalized marketing name (stripping the "AMD "/"AMD Instinct "/"AMD Radeon Instinct " prefixes and trailing " Graphics" suffix `amdgpu.ids` adds, and matching against `graphics_model` when present, else `product_name`). Matching is deliberately **exact** after normalization, not substring — gpu-specs.rst's plain "MI300X" is a substring of `amdgpu.ids`' "MI300X HF"/"MI300X VF" variant rows too, so substring matching would silently misattribute a variant SKU's `device_id` to the base part. Against today's two live sources: 34/44 GPU entries resolve unambiguously (including MI300X -> `74a1` and Strix Halo -> `1586`); 3 are genuinely ambiguous (`revision_id` disambiguation not yet implemented — MI250X spans two device_ids, "Radeon 780M" is reused across Phoenix and Hawk Point) and 7 are unmatched (older Instinct cards absent from `amdgpu.ids` entirely, capacity-suffixed names like "MI50 (32GB)" `amdgpu.ids` doesn't distinguish, and brand-new SKUs — RX 9050, R9700S — `amdgpu.ids` hasn't caught up to yet). All left unset with a build-time warning rather than guessed. Remaining work: use `revision_id` to resolve the 3 ambiguous cases (PRD's `revision_id` field exists for exactly this).
+>
+> **Generation naming inconsistency, also found during Phase 0 (2026-09-02).** `gpu-specs.rst` labels MI100's architecture `"CDNA"` (no digit); `precision-support.rst` and every other source use `"CDNA1"`. Treated as the same generation for the precision-support join, per product-owner judgment (CDNA had no numbered siblings until CDNA2 shipped — the same "no digit until a sequel exists" pattern as unnumbered RDNA before RDNA2). `catalog.json`'s `generation` field still preserves gpu-specs.rst's literal `"CDNA"` string as sourced — only the precision-support lookup applies the alias, so this is a documented normalization, not a silent rewrite of sourced data.
+
 ### 6.4 `NpuEntry`
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `device_id` | hex string | yes | PCI device ID under vendor `1022`. |
+| `revision_id` | hex string | no | PCI revision ID; present only when needed to disambiguate multiple hardware generations sharing one `device_id`. Added 2026-09-02 (see callout below) — mirrors `GpuEntry.revision_id`. |
 | `vendor_id` | hex string | yes | PCI vendor ID (`1022` for AMD's CPU-side functions, where NPUs enumerate). |
-| `family` | string | yes | Human family label, e.g. `"Strix/Krackan/Strix Halo"`. |
+| `family` | string | no (was `yes`, relaxed 2026-09-02 — see callout below) | Human family label, e.g. `"Strix/Krackan/Strix Halo"`. |
 | `hw_gen` | string | yes | NPU hardware generation label, e.g. `"Gen 5"`. |
 | `llvm_target` | string | no | AIE/XDNA LLVM target triple, if known. |
 | `associated_gpu_device_ids` | array of hex string | no | Cross-reference to `GpuEntry.device_id` for platforms that ship this NPU alongside a specific GPU. |
+
+> **NPU schema gap, found while ingesting `amd/xdna-driver` directly (2026-09-02).** Its own `amdxdna_ids[]` table (`drivers/accel/amdxdna/amdxdna_pci_drv.c`) shows PCI device_id `0x17f0` bound to **three different `(device_id, revision_id)` driver-generation entries** (NPU4/rev `0x10`, NPU5/rev `0x11`, NPU6/rev `0x20`) — a real disambiguation `NpuEntry` had no field for, so `revision_id` is added, mirroring `GpuEntry`. Worse: **all three of those NPU4/5/6 bindings share the exact same marketing-name table** (`npu4_rev_vbnv_tbl`: Strix, Krackan, Strix Halo, Gorgon Point) — the driver disambiguates the *actual* marketing family only via a live "get device revision" firmware message that reads a silicon fuse (`aie2_message.c`), never from the static PCI revision byte. That's live probing, which this catalog's own non-goals (§4) explicitly exclude — so `family` for any `0x17f0` row is honestly the *whole set* of names the driver associates with it, not a guessed single value. Separately, several device_ids (`0x1502`, and `0x17f1`/`0x17f2`/`0x17f3`/`0x1b0a`/`0x1b0b`/`0x1b0c`'s NPU3/9/10/11 classic/PF/VF variants) have **no marketing-name table in the driver at all** — `family` is left unset for these rather than backfilled with an internal driver string like `"RyzenAI-npu1"` masquerading as a human name, so `family` is now optional. Note this also means PRD §5's original "Phoenix/Hawk Point" claim for `0x1502` is **not corroborated by `amd/xdna-driver` itself** — it must trace to the Gentoo wiki source instead, and should be treated as unverified until a better source is found.
 
 ### 6.5 `NoteEntry`
 
@@ -168,7 +176,7 @@ skill without a parser library).
   "sources": [
     {"name": "rocm-gpu-specs", "url": "https://github.com/ROCm/ROCm/blob/develop/docs/reference/gpu-specs.rst", "ref": "<commit>"},
     {"name": "rocm-precision-support", "url": "...", "ref": "<commit>"},
-    {"name": "llvm-amdgpu-usage", "url": "https://llvm.org/docs/AMDGPUUsage.html", "ref": "<fetch-date>"}
+    {"name": "llvm-amdgpu-usage", "url": "https://github.com/llvm/llvm-project/blob/main/llvm/docs/AMDGPUUsage.rst", "ref": "<commit>"}
   ],
   "gpus": [
     {
@@ -249,8 +257,11 @@ gpuflo's own data model in the first place.
 script):
 - `ingest_rocm_gpu_specs.py` — parses `gpu-specs.rst` RST list-tables into `GpuEntry` records.
 - `ingest_rocm_precision_support.py` — parses `precision-support.rst` into per-generation precision blocks, joined onto `GpuEntry` by `generation`.
-- `ingest_llvm_amdgpu_usage.py` — parses the AMDGPUUsage Processors table for `gfx_target` ↔ `generation` cross-check, and to catch brand-new targets before ROCm's spec table catches up.
-- `ingest_npu_pciids.py` — builds `NpuEntry` records from the NPU PCI-ID sources.
+- `ingest_llvm_amdgpu_usage.py` — parses the AMDGPUUsage Processors table for `gfx_target` ↔ `generation` cross-check, and to catch brand-new targets before ROCm's spec table catches up (implemented; see `cross_check_llvm.py` below for the actual comparison logic).
+- `cross_check_llvm.py` — joins LLVM's per-target generation onto ingested `GpuEntry` records; on today's live sources this found 4 known, expected label differences on pre-CDNA/RDNA Instinct cards (ROCm's `"GCN5.1"`/`"GCN5.0"` vs. LLVM's `"VEGA7NM"`/`"VEGA"` — two different projects' naming for the same old silicon, not aliased away) and 20 `gfx_target`s LLVM already lists that `gpu-specs.rst` doesn't yet — including all of RDNA1 (never added to `gpu-specs.rst` at all) and forward-looking placeholders like `gfx1310`/"RDNA5" and `gfx1250`/`gfx1251` (next-gen APU targets, `*TBA*` product names in LLVM's own doc) — exactly the "catch brand-new targets" case this source exists for. Emits build-time warnings only; never adds or changes `GpuEntry` fields (implemented).
+- `ingest_xdna_pciids.py` — builds `NpuEntry` records directly from `amd/xdna-driver` (device_id/revision_id -> hw_gen from `amdxdna_ids[]`, family from the referenced `rev_vbnv_tbl` where one exists) (implemented; see §6.4).
+- `ingest_libdrm_amdgpu_ids.py` — parses `libdrm`'s `data/amdgpu.ids` into raw `device_id, revision_id, product_name` rows (implemented; see §6.3).
+- `match_gpu_device_ids.py` — joins `amdgpu.ids` rows onto `GpuEntry` records by normalized marketing name to populate `device_id`; never guesses on an ambiguous or unmatched name (implemented; see §6.3).
 - `build_catalog.py` — merges all of the above into one versioned `catalog.json`, stamping `generated_at` and `sources`.
 
 **Validation tools:**
@@ -296,9 +307,17 @@ script):
 - **Long-term repo ownership** — starts in `AMD-melliott` personal account.
   Contributing it to the ROCm GitHub org requires open-source governance
   board approval and is explicitly deferred; not a v1 concern.
-- Confirm the NPU PCI-ID table against `amd/xdna-driver` source directly
-  (today's data is sourced from a community wiki mirror, not upstream
-  driver source).
+- ~~Confirm the NPU PCI-ID table against `amd/xdna-driver` source
+  directly~~ — done 2026-09-02; see §5/§6.4. Ingestion now reads the driver
+  source directly instead of the Gentoo wiki mirror.
+- **RDNA3.5 missing from `precision-support.rst`'s generation matrix.**
+  Confirmed by inspection during Phase 0 implementation (2026-09-02): no
+  RDNA3.5 column exists anywhere in the document, so Strix Halo/Krackan/
+  Strix products get no `precision_support` data from this source today.
+  Not totally unexpected. May resolve upstream (ROCm adding the column) or
+  via hands-on validation — a Strix Halo node is available to confirm
+  precision support directly and feed it through the notes layer if
+  upstream doesn't add it. Matt is looking into why the column is missing.
 
 ## 11. Open questions
 
@@ -324,13 +343,22 @@ script):
 - Whether `specs`/`precision_support` should be included verbatim per
   product in v1, or deferred to a later phase if the initial cut only
   needs `generation` + `gfx_target` + memory-model notes.
+- **GPU `device_id` sourcing — found 2026-09-02, largely closed the same
+  day.** `libdrm`'s `data/amdgpu.ids` (added to §5) plus a normalized
+  marketing-name join (`match_gpu_device_ids.py`, see §6.3 callout) now
+  populates `device_id` for 34/44 GPU entries against today's live sources.
+  Remaining: 3 entries are ambiguous by name alone and need `revision_id`
+  disambiguation (not yet implemented); 7 are unmatched because
+  `amdgpu.ids` doesn't yet list them (older Instinct cards, capacity-suffix
+  variants, brand-new SKUs). `device_id` still isn't required in
+  `catalog.schema.json` — coverage isn't complete enough to demand it.
 
 ## 12. Phased implementation plan
 
 | Phase | Work | Exit criteria |
 |---|---|---|
-| 0 — Spike | Ingestion script for `gpu-specs.rst` + `precision-support.rst` only; hand-verify Strix Halo and MI300X rows | Parsed output matches known-good values |
-| 1 — Catalog repo | Full ingestion (add LLVM + NPU sources); first versioned JSON release | `v0.1.0` catalog published with source provenance |
+| 0 — Spike | Ingestion script for `gpu-specs.rst` + `precision-support.rst` only; hand-verify Strix Halo and MI300X rows | Parsed output matches known-good values — **done 2026-09-02** |
+| 1 — Catalog repo | Full ingestion (add LLVM + NPU sources); first versioned JSON release | `v0.1.0` catalog published with source provenance — **done 2026-09-02** (ingestion complete with real pinned source refs for all 5 sources; `v0.1.0` stamped in `catalog.json`. "Published" here means the artifact + provenance are correct and versioned, not that a GitHub Release/tag has been cut yet — that's a separate, later action.) |
 | 2 — Rust wrapper | Thin crate wrapping the catalog; migrate gpuflo's `platform.rs` to consume it | gpuflo depends on catalog; existing tests unchanged |
 | 3 — Python + Go wrappers | Mirror the Rust wrapper | Cross-language parity demonstrated; ready to propose to Mike for rocm-cli |
-| 4 — NPU + skill | Verify NPU table against `xdna-driver` source; write the agent skill | Skill usable by an agent with no prior repo context |
+| 4 — NPU + skill | Verify NPU table against `xdna-driver` source; write the agent skill | Skill usable by an agent with no prior repo context — NPU table verification **done 2026-09-02** (see §5/§6.4); agent skill still outstanding |
