@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AMD-melliott/amd-platform-catalog/catalog/schema/catalog.schema.json",
+  "title": "AMD Platform Catalog",
+  "description": "Formalizes PRD.md §6 (data model). See §6.3 note on device_id.",
+  "type": "object",
+  "required": ["catalog_version", "generated_at", "sources", "gpus", "npus", "notes"],
+  "additionalProperties": false,
+  "properties": {
+    "catalog_version": { "type": "string" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "sources": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/source" }
+    },
+    "gpus": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/gpu_entry" }
+    },
+    "npus": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/npu_entry" }
+    },
+    "notes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/note_entry" }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "required": ["name", "url", "ref"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "ref": { "type": "string" }
+      }
+    },
+    "gpu_entry": {
+      "type": "object",
+      "description": "PRD §6.3 marks device_id required. No GPU-facing source ingested so far (gpu-specs.rst) supplies a PCI device ID, so it is deliberately NOT required here yet -- this is a real gap in the PRD's sourcing plan, not an oversight. Revisit once a device_id source is identified.",
+      "required": ["gfx_target", "generation", "product_name", "memory_model", "lifecycle_status"],
+      "additionalProperties": false,
+      "properties": {
+        "device_id": { "type": "string", "pattern": "^[0-9a-fA-F]+$" },
+        "revision_id": { "type": "string", "pattern": "^[0-9a-fA-F]+$" },
+        "gfx_target": { "type": "string" },
+        "generation": { "type": "string" },
+        "product_name": { "type": "string" },
+        "graphics_model": { "type": "string" },
+        "memory_model": { "type": "string", "enum": ["dedicated", "unified"] },
+        "specs": { "type": "object" },
+        "precision_support": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" }
+        },
+        "lifecycle_status": { "type": "string", "enum": ["active", "eos", "unknown"] }
+      }
+    },
+    "npu_entry": {
+      "type": "object",
+      "required": ["device_id", "vendor_id", "family", "hw_gen"],
+      "additionalProperties": false,
+      "properties": {
+        "device_id": { "type": "string", "pattern": "^[0-9a-fA-F]+$" },
+        "vendor_id": { "type": "string", "pattern": "^[0-9a-fA-F]+$" },
+        "family": { "type": "string" },
+        "hw_gen": { "type": "string" },
+        "llvm_target": { "type": "string" },
+        "associated_gpu_device_ids": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[0-9a-fA-F]+$" }
+        }
+      }
+    },
+    "note_entry": {
+      "type": "object",
+      "required": ["device_id", "field", "note", "validated_on"],
+      "additionalProperties": false,
+      "properties": {
+        "device_id": { "type": "string", "pattern": "^[0-9a-fA-F]+$" },
+        "field": { "type": "string" },
+        "override": {},
+        "note": { "type": "string" },
+        "validated_on": { "type": "string", "format": "date" },
+        "validated_by": { "type": "string" }
+      }
+    }
+  }
+}

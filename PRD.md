@@ -75,6 +75,7 @@ running on real hardware.
 | `ROCm/ROCm` `docs/reference/precision-support.rst` | **Primary source** | Per-generation (CDNA1-4, RDNA2-4) data-type/precision capability matrix (fp8 variants, bf16, tf32, int8, etc.) — genuine "what can it do" data. |
 | `ROCm/ROCm` `docs/reference/gpu-arch/index.md` | **Secondary/reference** | Curated links to AMD white papers and ISA reference PDFs per generation. Unstructured; only worth extracting from if a specific fact is missing elsewhere. |
 | NPU PCI-ID data (Gentoo wiki `User:Lockal/AMDXDNA`, `amd/xdna-driver`) | **Primary source, needs re-verification against upstream driver source** | NPU presence + generation via PCI ID (vendor `1022`), e.g. `1022:1502` (Phoenix/Hawk Point), `1022:17f0` (Strix/Krackan/Strix Halo family, disambiguated by revision). |
+| `libdrm` `data/amdgpu.ids` (`gitlab.freedesktop.org/mesa/libdrm`) | **Primary source (candidate) — closes the GPU `device_id` gap identified below** | AMD-maintained (recent commits by Alex Deucher, `alexander.deucher@amd.com`, "from ROCm 7.2") `device_id, revision_id -> marketing product_name` table. Confirmed live (2026-09-02): `1586`/rev `C1` -> "AMD Radeon 8060S Graphics" (matches Strix Halo), `74A1` -> "AMD Instinct MI300X". Versioned (`1.0.0` header), mechanically parseable (simple comma-delimited text), updated per ROCm release — same trust tier as the other primary sources above. See §6.3 and §11 for the join complexity this introduces. |
 | amdgpu "IP Discovery" (debugfs) | **Noted, not used** | Most authoritative possible source (driver's own runtime hardware discovery), but root-only, undocumented binary format. Impractical for this catalog. |
 | AMD marketing product pages | **Rejected** | No gfx-target/architecture data; marketing TOPS/model-name only. |
 
@@ -121,6 +122,10 @@ have).
 | `specs` | object (open-ended, sourced verbatim from `gpu-specs.rst` columns) | no | Compute units, VRAM, cache sizes, etc. Shape varies by product family. |
 | `precision_support` | object (open-ended booleans keyed by data-type name) | no | Per-type native-support flags sourced from `precision-support.rst`, joined by `generation`. |
 | `lifecycle_status` | enum: `active`, `eos`, `unknown` | yes (defaults `unknown`) | Whether AMD has marked this product retired/end-of-service. See open question in §11. |
+
+> **`device_id` sourcing gap, found during Phase 0 implementation (2026-09-02).** No source evaluated in §5 originally supplied PCI device IDs for GPUs — `gpu-specs.rst` has no such column, unlike the NPU side which always had a PCI-ID source. `libdrm`'s `data/amdgpu.ids` (added to §5) is a strong AMD-maintained candidate that already covers every device confirmed here. The join isn't 1:1, though: one `device_id` maps to *several* `revision_id` rows, and those revisions can carry *different* marketing names (e.g. `1586` alone covers "8060S"/"8050S"/"8040S" variants — gpu-specs.rst's Ryzen APU tab has only one row per marketing name, so several `amdgpu.ids` revisions will map to one `GpuEntry`, populating `revision_id` as a list-like disambiguator or requiring one `GpuEntry` per revision group). Matching also isn't exact-string-safe today: `amdgpu.ids`' "AMD Radeon RX 9070 XT" vs. `gpu-specs.rst`'s "Radeon RX 9070 XT" already differ in an "AMD " prefix. Closing this gap needs a small `ingest_libdrm_amdgpu_ids.py` plus either normalized/fuzzy name matching or a hand-maintained alias table — tracked as an implementation task, not yet built. See §11.
+>
+> **Generation naming inconsistency, also found during Phase 0 (2026-09-02).** `gpu-specs.rst` labels MI100's architecture `"CDNA"` (no digit); `precision-support.rst` and every other source use `"CDNA1"`. Treated as the same generation for the precision-support join, per product-owner judgment (CDNA had no numbered siblings until CDNA2 shipped — the same "no digit until a sequel exists" pattern as unnumbered RDNA before RDNA2). `catalog.json`'s `generation` field still preserves gpu-specs.rst's literal `"CDNA"` string as sourced — only the precision-support lookup applies the alias, so this is a documented normalization, not a silent rewrite of sourced data.
 
 ### 6.4 `NpuEntry`
 
@@ -299,6 +304,14 @@ script):
 - Confirm the NPU PCI-ID table against `amd/xdna-driver` source directly
   (today's data is sourced from a community wiki mirror, not upstream
   driver source).
+- **RDNA3.5 missing from `precision-support.rst`'s generation matrix.**
+  Confirmed by inspection during Phase 0 implementation (2026-09-02): no
+  RDNA3.5 column exists anywhere in the document, so Strix Halo/Krackan/
+  Strix products get no `precision_support` data from this source today.
+  Not totally unexpected. May resolve upstream (ROCm adding the column) or
+  via hands-on validation — a Strix Halo node is available to confirm
+  precision support directly and feed it through the notes layer if
+  upstream doesn't add it. Matt is looking into why the column is missing.
 
 ## 11. Open questions
 
@@ -324,6 +337,17 @@ script):
 - Whether `specs`/`precision_support` should be included verbatim per
   product in v1, or deferred to a later phase if the initial cut only
   needs `generation` + `gfx_target` + memory-model notes.
+- **GPU `device_id` sourcing — found during Phase 0 implementation
+  (2026-09-02), important to solve for.** None of the sources originally
+  evaluated in §5 map GPU product name -> PCI device ID (`gpu-specs.rst`
+  has no such column) — only the NPU side had a PCI-ID source. `libdrm`'s
+  `data/amdgpu.ids` (added to §5) is a promising, AMD-maintained candidate
+  already confirmed to cover Strix Halo and MI300X, but the join is
+  many-to-one by revision and needs normalized marketing-name matching or a
+  hand-authored alias table (see the callout under §6.3). Not blocking
+  Phase 0 (which doesn't populate `device_id`), but must be resolved before
+  `device_id` — required by §6.3's schema — can actually be populated in a
+  real release.
 
 ## 12. Phased implementation plan
 
