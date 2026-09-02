@@ -39,7 +39,7 @@
     },
     "gpu_entry": {
       "type": "object",
-      "description": "PRD §6.3 marks device_id required. No GPU-facing source ingested so far (gpu-specs.rst) supplies a PCI device ID, so it is deliberately NOT required here yet -- this is a real gap in the PRD's sourcing plan, not an oversight. Revisit once a device_id source is identified.",
+      "description": "PRD §6.3 marks device_id required. gpu-specs.rst itself supplies no PCI device ID; libdrm's amdgpu.ids (joined by normalized marketing name, see match_gpu_device_ids.py) now populates it for entries that resolve unambiguously, but coverage isn't complete (some products aren't in amdgpu.ids yet, some marketing names are ambiguous across device_ids), so it stays NOT required here rather than backfilled with a placeholder.",
       "required": ["gfx_target", "generation", "product_name", "memory_model", "lifecycle_status"],
       "additionalProperties": false,
       "properties": {

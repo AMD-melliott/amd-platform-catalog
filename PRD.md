@@ -123,7 +123,7 @@ have).
 | `precision_support` | object (open-ended booleans keyed by data-type name) | no | Per-type native-support flags sourced from `precision-support.rst`, joined by `generation`. |
 | `lifecycle_status` | enum: `active`, `eos`, `unknown` | yes (defaults `unknown`) | Whether AMD has marked this product retired/end-of-service. See open question in §11. |
 
-> **`device_id` sourcing gap, found during Phase 0 implementation (2026-09-02).** No source evaluated in §5 originally supplied PCI device IDs for GPUs — `gpu-specs.rst` has no such column, unlike the NPU side which always had a PCI-ID source. `libdrm`'s `data/amdgpu.ids` (added to §5) is a strong AMD-maintained candidate that already covers every device confirmed here. The join isn't 1:1, though: one `device_id` maps to *several* `revision_id` rows, and those revisions can carry *different* marketing names (e.g. `1586` alone covers "8060S"/"8050S"/"8040S" variants — gpu-specs.rst's Ryzen APU tab has only one row per marketing name, so several `amdgpu.ids` revisions will map to one `GpuEntry`, populating `revision_id` as a list-like disambiguator or requiring one `GpuEntry` per revision group). Matching also isn't exact-string-safe today: `amdgpu.ids`' "AMD Radeon RX 9070 XT" vs. `gpu-specs.rst`'s "Radeon RX 9070 XT" already differ in an "AMD " prefix. Closing this gap needs a small `ingest_libdrm_amdgpu_ids.py` plus either normalized/fuzzy name matching or a hand-maintained alias table — tracked as an implementation task, not yet built. See §11.
+> **`device_id` sourcing, partially closed (found 2026-09-02, implemented 2026-09-02).** No source evaluated in §5 originally supplied PCI device IDs for GPUs — `gpu-specs.rst` has no such column, unlike the NPU side which always had a PCI-ID source. `libdrm`'s `data/amdgpu.ids` (added to §5) closes this for products it lists: `ingest_libdrm_amdgpu_ids.py` parses the file, and `match_gpu_device_ids.py` joins it onto `GpuEntry` rows by normalized marketing name (stripping the "AMD "/"AMD Instinct "/"AMD Radeon Instinct " prefixes and trailing " Graphics" suffix `amdgpu.ids` adds, and matching against `graphics_model` when present, else `product_name`). Matching is deliberately **exact** after normalization, not substring — gpu-specs.rst's plain "MI300X" is a substring of `amdgpu.ids`' "MI300X HF"/"MI300X VF" variant rows too, so substring matching would silently misattribute a variant SKU's `device_id` to the base part. Against today's two live sources: 34/44 GPU entries resolve unambiguously (including MI300X -> `74a1` and Strix Halo -> `1586`); 3 are genuinely ambiguous (`revision_id` disambiguation not yet implemented — MI250X spans two device_ids, "Radeon 780M" is reused across Phoenix and Hawk Point) and 7 are unmatched (older Instinct cards absent from `amdgpu.ids` entirely, capacity-suffixed names like "MI50 (32GB)" `amdgpu.ids` doesn't distinguish, and brand-new SKUs — RX 9050, R9700S — `amdgpu.ids` hasn't caught up to yet). All left unset with a build-time warning rather than guessed. Remaining work: use `revision_id` to resolve the 3 ambiguous cases (PRD's `revision_id` field exists for exactly this).
 >
 > **Generation naming inconsistency, also found during Phase 0 (2026-09-02).** `gpu-specs.rst` labels MI100's architecture `"CDNA"` (no digit); `precision-support.rst` and every other source use `"CDNA1"`. Treated as the same generation for the precision-support join, per product-owner judgment (CDNA had no numbered siblings until CDNA2 shipped — the same "no digit until a sequel exists" pattern as unnumbered RDNA before RDNA2). `catalog.json`'s `generation` field still preserves gpu-specs.rst's literal `"CDNA"` string as sourced — only the precision-support lookup applies the alias, so this is a documented normalization, not a silent rewrite of sourced data.
 
@@ -256,6 +256,8 @@ script):
 - `ingest_rocm_precision_support.py` — parses `precision-support.rst` into per-generation precision blocks, joined onto `GpuEntry` by `generation`.
 - `ingest_llvm_amdgpu_usage.py` — parses the AMDGPUUsage Processors table for `gfx_target` ↔ `generation` cross-check, and to catch brand-new targets before ROCm's spec table catches up.
 - `ingest_npu_pciids.py` — builds `NpuEntry` records from the NPU PCI-ID sources.
+- `ingest_libdrm_amdgpu_ids.py` — parses `libdrm`'s `data/amdgpu.ids` into raw `device_id, revision_id, product_name` rows (implemented; see §6.3).
+- `match_gpu_device_ids.py` — joins `amdgpu.ids` rows onto `GpuEntry` records by normalized marketing name to populate `device_id`; never guesses on an ambiguous or unmatched name (implemented; see §6.3).
 - `build_catalog.py` — merges all of the above into one versioned `catalog.json`, stamping `generated_at` and `sources`.
 
 **Validation tools:**
@@ -337,17 +339,15 @@ script):
 - Whether `specs`/`precision_support` should be included verbatim per
   product in v1, or deferred to a later phase if the initial cut only
   needs `generation` + `gfx_target` + memory-model notes.
-- **GPU `device_id` sourcing — found during Phase 0 implementation
-  (2026-09-02), important to solve for.** None of the sources originally
-  evaluated in §5 map GPU product name -> PCI device ID (`gpu-specs.rst`
-  has no such column) — only the NPU side had a PCI-ID source. `libdrm`'s
-  `data/amdgpu.ids` (added to §5) is a promising, AMD-maintained candidate
-  already confirmed to cover Strix Halo and MI300X, but the join is
-  many-to-one by revision and needs normalized marketing-name matching or a
-  hand-authored alias table (see the callout under §6.3). Not blocking
-  Phase 0 (which doesn't populate `device_id`), but must be resolved before
-  `device_id` — required by §6.3's schema — can actually be populated in a
-  real release.
+- **GPU `device_id` sourcing — found 2026-09-02, largely closed the same
+  day.** `libdrm`'s `data/amdgpu.ids` (added to §5) plus a normalized
+  marketing-name join (`match_gpu_device_ids.py`, see §6.3 callout) now
+  populates `device_id` for 34/44 GPU entries against today's live sources.
+  Remaining: 3 entries are ambiguous by name alone and need `revision_id`
+  disambiguation (not yet implemented); 7 are unmatched because
+  `amdgpu.ids` doesn't yet list them (older Instinct cards, capacity-suffix
+  variants, brand-new SKUs). `device_id` still isn't required in
+  `catalog.schema.json` — coverage isn't complete enough to demand it.
 
 ## 12. Phased implementation plan
 

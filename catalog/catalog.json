@@ -1,6 +1,6 @@
 {
   "catalog_version": "0.0.1",
-  "generated_at": "2026-09-02T21:03:12Z",
+  "generated_at": "2026-09-02T21:32:51Z",
   "sources": [
     {
       "name": "rocm-gpu-specs",
@@ -11,6 +11,11 @@
       "name": "rocm-precision-support",
       "url": "https://github.com/ROCm/ROCm/blob/develop/docs/reference/precision-support.rst",
       "ref": "245d7ceaad0e670ab3fcc5601a690ecaad0a003d"
+    },
+    {
+      "name": "libdrm-amdgpu-ids",
+      "url": "https://gitlab.freedesktop.org/mesa/libdrm/-/blob/main/data/amdgpu.ids",
+      "ref": "15cdcfe9e1c4b00f2a819bc1f4b3efa1326ac6bc"
     }
   ],
   "gpus": [
@@ -35,6 +40,7 @@
       "gfx_target": "gfx950",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "75a3",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -74,6 +80,7 @@
       "gfx_target": "gfx950",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "75a0",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -113,6 +120,7 @@
       "gfx_target": "gfx942",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "74a5",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -152,6 +160,7 @@
       "gfx_target": "gfx942",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "74a1",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -191,6 +200,7 @@
       "gfx_target": "gfx942",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "74a0",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -269,6 +279,7 @@
       "gfx_target": "gfx90a",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "740c",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -308,6 +319,7 @@
       "gfx_target": "gfx90a",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "740f",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -347,6 +359,7 @@
       "gfx_target": "gfx908",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "738c",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -385,7 +398,8 @@
       "generation": "GCN5.1",
       "gfx_target": "gfx906",
       "memory_model": "dedicated",
-      "lifecycle_status": "unknown"
+      "lifecycle_status": "unknown",
+      "device_id": "66a1"
     },
     {
       "specs": {
@@ -451,7 +465,8 @@
       "generation": "GCN5.0",
       "gfx_target": "gfx900",
       "memory_model": "dedicated",
-      "lifecycle_status": "unknown"
+      "lifecycle_status": "unknown",
+      "device_id": "6860"
     },
     {
       "specs": {
@@ -559,6 +574,7 @@
       "gfx_target": "gfx1201",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "7551",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -599,6 +615,7 @@
       "gfx_target": "gfx1201",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "7551",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -639,6 +656,7 @@
       "gfx_target": "gfx1101",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "7460",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -679,6 +697,7 @@
       "gfx_target": "gfx1100",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "744a",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -719,6 +738,7 @@
       "gfx_target": "gfx1100",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "7448",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -759,6 +779,7 @@
       "gfx_target": "gfx1100",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "7449",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -799,6 +820,7 @@
       "gfx_target": "gfx1100",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "745e",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -839,6 +861,7 @@
       "gfx_target": "gfx1101",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "7470",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -879,6 +902,7 @@
       "gfx_target": "gfx1201",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "7550",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -919,6 +943,7 @@
       "gfx_target": "gfx1201",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "7550",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -959,6 +984,7 @@
       "gfx_target": "gfx1201",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "7550",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -999,6 +1025,7 @@
       "gfx_target": "gfx1200",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "7590",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -1039,6 +1066,7 @@
       "gfx_target": "gfx1200",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "7590",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -1079,6 +1107,7 @@
       "gfx_target": "gfx1200",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "7590",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -1199,6 +1228,7 @@
       "gfx_target": "gfx1100",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "744c",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -1239,6 +1269,7 @@
       "gfx_target": "gfx1100",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "744c",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -1279,6 +1310,7 @@
       "gfx_target": "gfx1100",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "744c",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -1319,6 +1351,7 @@
       "gfx_target": "gfx1101",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "747e",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -1359,6 +1392,7 @@
       "gfx_target": "gfx1101",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "747e",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -1399,6 +1433,7 @@
       "gfx_target": "gfx1101",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "747e",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -1439,6 +1474,7 @@
       "gfx_target": "gfx1102",
       "memory_model": "dedicated",
       "lifecycle_status": "unknown",
+      "device_id": "7480",
       "precision_support": {
         "int8": true,
         "int16": true,
@@ -1561,7 +1597,8 @@
       "generation": "RDNA3.5",
       "gfx_target": "gfx1150",
       "memory_model": "unified",
-      "lifecycle_status": "unknown"
+      "lifecycle_status": "unknown",
+      "device_id": "150e"
     },
     {
       "specs": {
@@ -1585,7 +1622,8 @@
       "generation": "RDNA3.5",
       "gfx_target": "gfx1151",
       "memory_model": "unified",
-      "lifecycle_status": "unknown"
+      "lifecycle_status": "unknown",
+      "device_id": "1586"
     },
     {
       "specs": {
@@ -1609,7 +1647,8 @@
       "generation": "RDNA3.5",
       "gfx_target": "gfx1152",
       "memory_model": "unified",
-      "lifecycle_status": "unknown"
+      "lifecycle_status": "unknown",
+      "device_id": "1114"
     }
   ],
   "npus": [],

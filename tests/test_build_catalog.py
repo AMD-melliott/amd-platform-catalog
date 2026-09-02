@@ -24,6 +24,7 @@ def _built_catalog() -> dict:
     return build_catalog(
         _fixture_source("rocm-gpu-specs", "gpu-specs.rst"),
         _fixture_source("rocm-precision-support", "precision-support.rst"),
+        _fixture_source("libdrm-amdgpu-ids", "amdgpu.ids"),
     )
 
 
@@ -39,11 +40,13 @@ def test_golden_entries_after_precision_join():
     assert mi300x["generation"] == "CDNA3"
     assert mi300x["precision_support"]["fp8_e4m3_fnuz"] is True
     assert mi300x["precision_support"]["int64"] is True
+    assert mi300x["device_id"] == "74a1"
 
     strix_halo = by_name["AMD Ryzen AI Max+ PRO 395"]
     assert strix_halo["generation"] == "RDNA3.5"
     # Real gap, not a bug: RDNA3.5 has no column in precision-support.rst.
     assert "precision_support" not in strix_halo
+    assert strix_halo["device_id"] == "1586"
 
     mi100 = by_name["MI100"]
     # gpu-specs.rst sources MI100's generation as "CDNA" (no digit); the
