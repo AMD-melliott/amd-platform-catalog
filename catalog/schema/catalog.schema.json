@@ -60,10 +60,12 @@
     },
     "npu_entry": {
       "type": "object",
-      "required": ["device_id", "vendor_id", "family", "hw_gen"],
+      "description": "PRD §6.4: revision_id added and family relaxed to optional 2026-09-02 after ingesting amd/xdna-driver directly -- one device_id (e.g. 0x17f0) binds to several (device_id, revision_id) driver generations, and even then the true marketing family requires a live firmware query the driver source can't give statically. See the §6.4 callout.",
+      "required": ["device_id", "vendor_id", "hw_gen"],
       "additionalProperties": false,
       "properties": {
         "device_id": { "type": "string", "pattern": "^[0-9a-fA-F]+$" },
+        "revision_id": { "type": "string", "pattern": "^[0-9a-fA-F]+$" },
         "vendor_id": { "type": "string", "pattern": "^[0-9a-fA-F]+$" },
         "family": { "type": "string" },
         "hw_gen": { "type": "string" },

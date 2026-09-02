@@ -5,9 +5,11 @@ libdrm's amdgpu.ids populates GpuEntry.device_id where the join resolves
 unambiguously (see match_gpu_device_ids.py); LLVM's AMDGPUUsage Processors
 table is ingested purely as a build-time cross-check (see cross_check_llvm.py)
 -- it never adds/changes GpuEntry fields, only emits warnings for generation
-mismatches and gfx_targets not yet in gpu-specs.rst. NPU PCI-ID ingestion and
-the hand-maintained notes overlay are later PRD phases -- ``npus`` and
-``notes`` are emitted as empty arrays on purpose, not silently populated.
+mismatches and gfx_targets not yet in gpu-specs.rst; amd/xdna-driver's own
+PCI ID table populates ``npus`` directly (see ingest_xdna_pciids.py -- family
+is left unset where the driver source itself provides no marketing name).
+The hand-maintained notes overlay is a later PRD phase -- ``notes`` is
+emitted as an empty array on purpose, not silently populated.
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ from . import (
     ingest_llvm_amdgpu_usage,
     ingest_rocm_gpu_specs,
     ingest_rocm_precision_support,
+    ingest_xdna_pciids,
     match_gpu_device_ids,
 )
 
@@ -43,6 +46,12 @@ AMDGPU_USAGE_PATH = "llvm/docs/AMDGPUUsage.rst"
 LIBDRM_PROJECT = "mesa/libdrm"
 LIBDRM_BRANCH = "main"
 AMDGPU_IDS_PATH = "data/amdgpu.ids"
+
+XDNA_REPO = "amd/xdna-driver"
+XDNA_BRANCH = "main"
+XDNA_DIR = "drivers/accel/amdxdna"
+XDNA_PCI_DRV_PATH = f"{XDNA_DIR}/amdxdna_pci_drv.c"
+XDNA_REGS_FILENAMES = ["npu1_regs.c", "npu3_regs.c", "npu4_regs.c", "npu5_regs.c", "npu6_regs.c"]
 
 # Pre-release: this is the Phase 0/1 spike, not the real PRD v0.1.0 release.
 CATALOG_VERSION = "0.0.1"
@@ -129,6 +138,45 @@ def load_fixture(name: str, file_path: Path, url: str) -> SourceDoc:
     return SourceDoc(name=name, url=url, ref="fixture", text=file_path.read_text())
 
 
+@dataclasses.dataclass
+class XdnaSource:
+    """xdna-driver spans several files (one pci_ids table + several
+    per-generation regs.c files with the marketing-name tables) but is one
+    logical, singly-provenanced source -- `source_doc` carries the `sources`
+    entry, `pci_drv_text`/`regs_texts` are what ingest_xdna_pciids.ingest()
+    actually parses."""
+
+    source_doc: SourceDoc
+    pci_drv_text: str
+    regs_texts: list[str]
+
+
+def _xdna_blob_url() -> str:
+    return _github_blob_url(XDNA_REPO, XDNA_BRANCH, XDNA_DIR)
+
+
+def fetch_xdna_pciids() -> XdnaSource:
+    pci_drv_resp = requests.get(_github_raw_url(XDNA_REPO, XDNA_BRANCH, XDNA_PCI_DRV_PATH), timeout=30)
+    pci_drv_resp.raise_for_status()
+    regs_texts = []
+    for filename in XDNA_REGS_FILENAMES:
+        resp = requests.get(_github_raw_url(XDNA_REPO, XDNA_BRANCH, f"{XDNA_DIR}/{filename}"), timeout=30)
+        resp.raise_for_status()
+        regs_texts.append(resp.text)
+    ref_resp = requests.get(f"https://api.github.com/repos/{XDNA_REPO}/commits/{XDNA_BRANCH}", timeout=30)
+    ref_resp.raise_for_status()
+    source_doc = SourceDoc(name="xdna-driver-npu-pciids", url=_xdna_blob_url(), ref=ref_resp.json()["sha"], text="")
+    return XdnaSource(source_doc=source_doc, pci_drv_text=pci_drv_resp.text, regs_texts=regs_texts)
+
+
+def load_xdna_fixture(fixtures_dir: Path) -> XdnaSource:
+    xdna_dir = fixtures_dir / "xdna_driver"
+    pci_drv_text = (xdna_dir / "amdxdna_pci_drv.c").read_text()
+    regs_texts = [(xdna_dir / filename).read_text() for filename in XDNA_REGS_FILENAMES]
+    source_doc = SourceDoc(name="xdna-driver-npu-pciids", url=_xdna_blob_url(), ref="fixture", text="")
+    return XdnaSource(source_doc=source_doc, pci_drv_text=pci_drv_text, regs_texts=regs_texts)
+
+
 # gpu-specs.rst labels MI100's architecture "CDNA" (no digit); every other
 # ROCm source (precision-support.rst included) calls it "CDNA1". Per
 # product-owner confirmation (2026-09-02), CDNA had no numbered siblings
@@ -147,11 +195,13 @@ def build_catalog(
     precision_support: SourceDoc,
     libdrm_amdgpu_ids: SourceDoc,
     llvm_amdgpu_usage: SourceDoc,
+    xdna_pciids: XdnaSource,
 ) -> dict:
     gpu_entries = ingest_rocm_gpu_specs.ingest(gpu_specs.text)
     precision_by_generation = ingest_rocm_precision_support.ingest(precision_support.text)
     amdgpu_id_rows = ingest_libdrm_amdgpu_ids.ingest(libdrm_amdgpu_ids.text)
     llvm_entries = ingest_llvm_amdgpu_usage.ingest(llvm_amdgpu_usage.text)
+    npu_id_rows = ingest_xdna_pciids.ingest(xdna_pciids.pci_drv_text, xdna_pciids.regs_texts)
 
     device_id_report = match_gpu_device_ids.apply_device_ids(gpu_entries, amdgpu_id_rows)
     for product_name in device_id_report.unmatched:
@@ -193,6 +243,18 @@ def build_catalog(
             file=sys.stderr,
         )
 
+    npu_entries = []
+    for row in npu_id_rows:
+        entry = {
+            "device_id": row.device_id,
+            "revision_id": row.revision_id,
+            "vendor_id": row.vendor_id,
+            "hw_gen": row.hw_gen,
+        }
+        if row.family is not None:
+            entry["family"] = row.family
+        npu_entries.append(entry)
+
     return {
         "catalog_version": CATALOG_VERSION,
         "generated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -201,9 +263,14 @@ def build_catalog(
             {"name": precision_support.name, "url": precision_support.url, "ref": precision_support.ref},
             {"name": libdrm_amdgpu_ids.name, "url": libdrm_amdgpu_ids.url, "ref": libdrm_amdgpu_ids.ref},
             {"name": llvm_amdgpu_usage.name, "url": llvm_amdgpu_usage.url, "ref": llvm_amdgpu_usage.ref},
+            {
+                "name": xdna_pciids.source_doc.name,
+                "url": xdna_pciids.source_doc.url,
+                "ref": xdna_pciids.source_doc.ref,
+            },
         ],
         "gpus": gpu_entries,
-        "npus": [],
+        "npus": npu_entries,
         "notes": [],
     }
 
@@ -214,8 +281,9 @@ def main(argv: list[str] | None = None) -> int:
         "--fixtures-dir",
         type=Path,
         default=None,
-        help="Read gpu-specs.rst/precision-support.rst/amdgpu.ids/AMDGPUUsage.rst "
-        "from this local directory instead of fetching them live (offline mode).",
+        help="Read gpu-specs.rst/precision-support.rst/amdgpu.ids/AMDGPUUsage.rst/"
+        "xdna_driver/ from this local directory instead of fetching them live "
+        "(offline mode).",
     )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args(argv)
@@ -231,13 +299,15 @@ def main(argv: list[str] | None = None) -> int:
         llvm_amdgpu_usage = load_fixture(
             "llvm-amdgpu-usage", args.fixtures_dir / "AMDGPUUsage.rst", _llvm_blob_url()
         )
+        xdna_pciids = load_xdna_fixture(args.fixtures_dir)
     else:
         gpu_specs = fetch_source("rocm-gpu-specs", GPU_SPECS_PATH)
         precision_support = fetch_source("rocm-precision-support", PRECISION_SUPPORT_PATH)
         libdrm_amdgpu_ids = fetch_libdrm_amdgpu_ids()
         llvm_amdgpu_usage = fetch_llvm_amdgpu_usage()
+        xdna_pciids = fetch_xdna_pciids()
 
-    catalog = build_catalog(gpu_specs, precision_support, libdrm_amdgpu_ids, llvm_amdgpu_usage)
+    catalog = build_catalog(gpu_specs, precision_support, libdrm_amdgpu_ids, llvm_amdgpu_usage, xdna_pciids)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(catalog, indent=2, ensure_ascii=False) + "\n")

@@ -1,6 +1,6 @@
 {
   "catalog_version": "0.0.1",
-  "generated_at": "2026-09-02T21:57:41Z",
+  "generated_at": "2026-09-02T22:11:56Z",
   "sources": [
     {
       "name": "rocm-gpu-specs",
@@ -21,6 +21,11 @@
       "name": "llvm-amdgpu-usage",
       "url": "https://github.com/llvm/llvm-project/blob/main/llvm/docs/AMDGPUUsage.rst",
       "ref": "012ea2319f73fc24c1614f8c8868c26de6d58ce9"
+    },
+    {
+      "name": "xdna-driver-npu-pciids",
+      "url": "https://github.com/amd/xdna-driver/blob/main/drivers/accel/amdxdna",
+      "ref": "73f7f912a9dc51f4bb53e833dd552f2914e38bae"
     }
   ],
   "gpus": [
@@ -1656,6 +1661,124 @@
       "device_id": "1114"
     }
   ],
-  "npus": [],
+  "npus": [
+    {
+      "device_id": "1502",
+      "revision_id": "00",
+      "vendor_id": "1022",
+      "hw_gen": "NPU1"
+    },
+    {
+      "device_id": "17f0",
+      "revision_id": "10",
+      "vendor_id": "1022",
+      "hw_gen": "NPU4",
+      "family": "Strix / Krackan / Strix Halo / Gorgon Point"
+    },
+    {
+      "device_id": "17f0",
+      "revision_id": "11",
+      "vendor_id": "1022",
+      "hw_gen": "NPU5",
+      "family": "Strix / Krackan / Strix Halo / Gorgon Point"
+    },
+    {
+      "device_id": "17f0",
+      "revision_id": "20",
+      "vendor_id": "1022",
+      "hw_gen": "NPU6",
+      "family": "Strix / Krackan / Strix Halo / Gorgon Point"
+    },
+    {
+      "device_id": "17f1",
+      "revision_id": "10",
+      "vendor_id": "1022",
+      "hw_gen": "NPU3"
+    },
+    {
+      "device_id": "17f2",
+      "revision_id": "10",
+      "vendor_id": "1022",
+      "hw_gen": "NPU3"
+    },
+    {
+      "device_id": "17f3",
+      "revision_id": "10",
+      "vendor_id": "1022",
+      "hw_gen": "NPU3"
+    },
+    {
+      "device_id": "1b0a",
+      "revision_id": "00",
+      "vendor_id": "1022",
+      "hw_gen": "NPU3"
+    },
+    {
+      "device_id": "1b0b",
+      "revision_id": "00",
+      "vendor_id": "1022",
+      "hw_gen": "NPU3"
+    },
+    {
+      "device_id": "1b0c",
+      "revision_id": "00",
+      "vendor_id": "1022",
+      "hw_gen": "NPU3"
+    },
+    {
+      "device_id": "17f1",
+      "revision_id": "13",
+      "vendor_id": "1022",
+      "hw_gen": "NPU9"
+    },
+    {
+      "device_id": "17f2",
+      "revision_id": "13",
+      "vendor_id": "1022",
+      "hw_gen": "NPU9"
+    },
+    {
+      "device_id": "17f3",
+      "revision_id": "13",
+      "vendor_id": "1022",
+      "hw_gen": "NPU9"
+    },
+    {
+      "device_id": "17f1",
+      "revision_id": "14",
+      "vendor_id": "1022",
+      "hw_gen": "NPU10"
+    },
+    {
+      "device_id": "17f2",
+      "revision_id": "14",
+      "vendor_id": "1022",
+      "hw_gen": "NPU10"
+    },
+    {
+      "device_id": "17f3",
+      "revision_id": "14",
+      "vendor_id": "1022",
+      "hw_gen": "NPU10"
+    },
+    {
+      "device_id": "17f1",
+      "revision_id": "15",
+      "vendor_id": "1022",
+      "hw_gen": "NPU11"
+    },
+    {
+      "device_id": "17f2",
+      "revision_id": "15",
+      "vendor_id": "1022",
+      "hw_gen": "NPU11"
+    },
+    {
+      "device_id": "17f3",
+      "revision_id": "15",
+      "vendor_id": "1022",
+      "hw_gen": "NPU11"
+    }
+  ],
   "notes": []
 }
