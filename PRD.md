@@ -357,8 +357,8 @@ script):
 
 | Phase | Work | Exit criteria |
 |---|---|---|
-| 0 — Spike | Ingestion script for `gpu-specs.rst` + `precision-support.rst` only; hand-verify Strix Halo and MI300X rows | Parsed output matches known-good values |
-| 1 — Catalog repo | Full ingestion (add LLVM + NPU sources); first versioned JSON release | `v0.1.0` catalog published with source provenance |
+| 0 — Spike | Ingestion script for `gpu-specs.rst` + `precision-support.rst` only; hand-verify Strix Halo and MI300X rows | Parsed output matches known-good values — **done 2026-09-02** |
+| 1 — Catalog repo | Full ingestion (add LLVM + NPU sources); first versioned JSON release | `v0.1.0` catalog published with source provenance — **done 2026-09-02** (ingestion complete with real pinned source refs for all 5 sources; `v0.1.0` stamped in `catalog.json`. "Published" here means the artifact + provenance are correct and versioned, not that a GitHub Release/tag has been cut yet — that's a separate, later action.) |
 | 2 — Rust wrapper | Thin crate wrapping the catalog; migrate gpuflo's `platform.rs` to consume it | gpuflo depends on catalog; existing tests unchanged |
 | 3 — Python + Go wrappers | Mirror the Rust wrapper | Cross-language parity demonstrated; ready to propose to Mike for rocm-cli |
-| 4 — NPU + skill | Verify NPU table against `xdna-driver` source; write the agent skill | Skill usable by an agent with no prior repo context |
+| 4 — NPU + skill | Verify NPU table against `xdna-driver` source; write the agent skill | Skill usable by an agent with no prior repo context — NPU table verification **done 2026-09-02** (see §5/§6.4); agent skill still outstanding |

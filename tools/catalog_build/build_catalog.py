@@ -53,8 +53,11 @@ XDNA_DIR = "drivers/accel/amdxdna"
 XDNA_PCI_DRV_PATH = f"{XDNA_DIR}/amdxdna_pci_drv.c"
 XDNA_REGS_FILENAMES = ["npu1_regs.c", "npu3_regs.c", "npu4_regs.c", "npu5_regs.c", "npu6_regs.c"]
 
-# Pre-release: this is the Phase 0/1 spike, not the real PRD v0.1.0 release.
-CATALOG_VERSION = "0.0.1"
+# PRD §12 Phase 1 exit criterion: "v0.1.0 catalog published with source
+# provenance" -- full ingestion (gpu-specs, precision-support, libdrm
+# device_id join, LLVM cross-check, xdna-driver NPU IDs) is done as of
+# 2026-09-02, each with a real pinned source ref.
+CATALOG_VERSION = "0.1.0"
 
 DEFAULT_OUTPUT = Path("catalog/catalog.json")
 

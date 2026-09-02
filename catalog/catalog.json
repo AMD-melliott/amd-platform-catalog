@@ -1,6 +1,6 @@
 {
-  "catalog_version": "0.0.1",
-  "generated_at": "2026-09-02T22:11:56Z",
+  "catalog_version": "0.1.0",
+  "generated_at": "2026-09-02T22:14:59Z",
   "sources": [
     {
       "name": "rocm-gpu-specs",
