@@ -213,6 +213,15 @@ the pinned catalog JSON, look up by `device_id` (+ revision where the
 device ID alone is ambiguous), apply the notes overlay, return a typed
 struct. No FFI, no subprocess, no shared native runtime.
 
+**Rust (`bindings/rust/`, implemented 2026-09-02).** Embeds `catalog.json`
+via `include_str!`, parses once (`OnceLock`), exposes `gpu_by_device_id`,
+`gpus_by_gfx_target`, `gpus_by_generation`, `npus_by_device_id` (+revision
+variant), `notes_for_device`, and `resolve_gpu` (applies the notes overlay).
+The notes-overlay implementation currently only supports overrides whose
+`field` is `"specs.<key>"` — `catalog.json` has zero real notes yet, so
+there's no concrete example of a top-level-field override to design
+against; extend `apply_gpu_overrides` when one exists.
+
 ### 7.4 Agent skill architecture
 
 The skill teaches an agent to answer platform-capability questions directly
@@ -359,6 +368,6 @@ script):
 |---|---|---|
 | 0 — Spike | Ingestion script for `gpu-specs.rst` + `precision-support.rst` only; hand-verify Strix Halo and MI300X rows | Parsed output matches known-good values — **done 2026-09-02** |
 | 1 — Catalog repo | Full ingestion (add LLVM + NPU sources); first versioned JSON release | `v0.1.0` catalog published with source provenance — **done 2026-09-02** (ingestion complete with real pinned source refs for all 5 sources; `v0.1.0` stamped in `catalog.json`. "Published" here means the artifact + provenance are correct and versioned, not that a GitHub Release/tag has been cut yet — that's a separate, later action.) |
-| 2 — Rust wrapper | Thin crate wrapping the catalog; migrate gpuflo's `platform.rs` to consume it | gpuflo depends on catalog; existing tests unchanged |
+| 2 — Rust wrapper | Thin crate wrapping the catalog; migrate gpuflo's `platform.rs` to consume it | gpuflo depends on catalog; existing tests unchanged — **crate half done 2026-09-02** (`bindings/rust/`: embeds `catalog.json` via `include_str!`, typed lookups by device_id/gfx_target/generation, notes-overlay resolution, 9 passing tests incl. MI300X/Strix Halo goldens). Migrating gpuflo's `platform.rs` itself is **not done** — gpuflo lives in a separate repo this session has no access to; that half needs doing from within gpuflo's own repo. |
 | 3 — Python + Go wrappers | Mirror the Rust wrapper | Cross-language parity demonstrated; ready to propose to Mike for rocm-cli |
 | 4 — NPU + skill | Verify NPU table against `xdna-driver` source; write the agent skill | Skill usable by an agent with no prior repo context — NPU table verification **done 2026-09-02** (see §5/§6.4); agent skill still outstanding |
