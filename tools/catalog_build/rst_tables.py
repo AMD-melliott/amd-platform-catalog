@@ -94,8 +94,18 @@ def _clean_cell_text(text: str) -> str:
     return " ".join(text.replace("\xa0", " ").split())
 
 
+def _entry_text(entry: nodes.Element) -> str:
+    # An unknown directive/role failing *inside* a cell (e.g. LLVM's docs
+    # use ".. TODO::") embeds a multi-line system_message with the parser's
+    # error text right there in the doctree, which astext() would otherwise
+    # include verbatim in the extracted cell. Strip those nodes first.
+    for system_message in list(entry.findall(nodes.system_message)):
+        system_message.parent.remove(system_message)
+    return entry.astext()
+
+
 def _row_cells(row: nodes.Element) -> list[str]:
-    return [_clean_cell_text(entry.astext()) for entry in row.findall(nodes.entry)]
+    return [_clean_cell_text(_entry_text(entry)) for entry in row.findall(nodes.entry)]
 
 
 def extract_list_tables(text: str) -> list[Table]:

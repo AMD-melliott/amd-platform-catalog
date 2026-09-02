@@ -25,6 +25,7 @@ def _built_catalog() -> dict:
         _fixture_source("rocm-gpu-specs", "gpu-specs.rst"),
         _fixture_source("rocm-precision-support", "precision-support.rst"),
         _fixture_source("libdrm-amdgpu-ids", "amdgpu.ids"),
+        _fixture_source("llvm-amdgpu-usage", "AMDGPUUsage.rst"),
     )
 
 

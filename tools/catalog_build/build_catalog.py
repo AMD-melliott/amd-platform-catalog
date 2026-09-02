@@ -1,12 +1,13 @@
 """Merge ingested sources into a versioned catalog.json (PRD §7.2/§7.3).
 
-Phase 0/1 spike: gpu-specs.rst and precision-support.rst are ingested per
-Phase 0, plus libdrm's amdgpu.ids (Phase 1 continuation) to populate
-GpuEntry.device_id where the join resolves unambiguously (see
-match_gpu_device_ids.py). LLVM AMDGPUUsage cross-check, NPU PCI-ID
-ingestion, and the hand-maintained notes overlay are later PRD phases --
-``npus`` and ``notes`` are emitted as empty arrays on purpose, not silently
-populated.
+Phase 0/1: gpu-specs.rst and precision-support.rst are ingested per Phase 0;
+libdrm's amdgpu.ids populates GpuEntry.device_id where the join resolves
+unambiguously (see match_gpu_device_ids.py); LLVM's AMDGPUUsage Processors
+table is ingested purely as a build-time cross-check (see cross_check_llvm.py)
+-- it never adds/changes GpuEntry fields, only emits warnings for generation
+mismatches and gfx_targets not yet in gpu-specs.rst. NPU PCI-ID ingestion and
+the hand-maintained notes overlay are later PRD phases -- ``npus`` and
+``notes`` are emitted as empty arrays on purpose, not silently populated.
 """
 
 from __future__ import annotations
@@ -22,7 +23,9 @@ from pathlib import Path
 import requests
 
 from . import (
+    cross_check_llvm,
     ingest_libdrm_amdgpu_ids,
+    ingest_llvm_amdgpu_usage,
     ingest_rocm_gpu_specs,
     ingest_rocm_precision_support,
     match_gpu_device_ids,
@@ -32,6 +35,10 @@ ROCM_REPO = "ROCm/ROCm"
 ROCM_BRANCH = "develop"
 GPU_SPECS_PATH = "docs/reference/gpu-specs.rst"
 PRECISION_SUPPORT_PATH = "docs/reference/precision-support.rst"
+
+LLVM_REPO = "llvm/llvm-project"
+LLVM_BRANCH = "main"
+AMDGPU_USAGE_PATH = "llvm/docs/AMDGPUUsage.rst"
 
 LIBDRM_PROJECT = "mesa/libdrm"
 LIBDRM_BRANCH = "main"
@@ -51,28 +58,44 @@ class SourceDoc:
     text: str
 
 
-def _raw_url(path: str) -> str:
-    return f"https://raw.githubusercontent.com/{ROCM_REPO}/{ROCM_BRANCH}/{path}"
+def _github_raw_url(repo: str, branch: str, path: str) -> str:
+    return f"https://raw.githubusercontent.com/{repo}/{branch}/{path}"
 
 
-def _blob_url(path: str) -> str:
-    return f"https://github.com/{ROCM_REPO}/blob/{ROCM_BRANCH}/{path}"
+def _github_blob_url(repo: str, branch: str, path: str) -> str:
+    return f"https://github.com/{repo}/blob/{branch}/{path}"
 
 
-def _latest_commit_sha(path: str) -> str:
+def _github_latest_commit_sha(repo: str, branch: str, path: str) -> str:
     resp = requests.get(
-        f"https://api.github.com/repos/{ROCM_REPO}/commits",
-        params={"path": path, "sha": ROCM_BRANCH, "per_page": 1},
+        f"https://api.github.com/repos/{repo}/commits",
+        params={"path": path, "sha": branch, "per_page": 1},
         timeout=30,
     )
     resp.raise_for_status()
     return resp.json()[0]["sha"]
 
 
+def _blob_url(path: str) -> str:
+    return _github_blob_url(ROCM_REPO, ROCM_BRANCH, path)
+
+
 def fetch_source(name: str, path: str) -> SourceDoc:
-    resp = requests.get(_raw_url(path), timeout=30)
+    resp = requests.get(_github_raw_url(ROCM_REPO, ROCM_BRANCH, path), timeout=30)
     resp.raise_for_status()
-    return SourceDoc(name=name, url=_blob_url(path), ref=_latest_commit_sha(path), text=resp.text)
+    ref = _github_latest_commit_sha(ROCM_REPO, ROCM_BRANCH, path)
+    return SourceDoc(name=name, url=_blob_url(path), ref=ref, text=resp.text)
+
+
+def _llvm_blob_url() -> str:
+    return _github_blob_url(LLVM_REPO, LLVM_BRANCH, AMDGPU_USAGE_PATH)
+
+
+def fetch_llvm_amdgpu_usage() -> SourceDoc:
+    resp = requests.get(_github_raw_url(LLVM_REPO, LLVM_BRANCH, AMDGPU_USAGE_PATH), timeout=30)
+    resp.raise_for_status()
+    ref = _github_latest_commit_sha(LLVM_REPO, LLVM_BRANCH, AMDGPU_USAGE_PATH)
+    return SourceDoc(name="llvm-amdgpu-usage", url=_llvm_blob_url(), ref=ref, text=resp.text)
 
 
 def _libdrm_raw_url() -> str:
@@ -107,17 +130,28 @@ def load_fixture(name: str, file_path: Path, url: str) -> SourceDoc:
 
 
 # gpu-specs.rst labels MI100's architecture "CDNA" (no digit); every other
-# source (precision-support.rst included) calls it "CDNA1". Per product-owner
-# confirmation (2026-09-02), CDNA had no numbered siblings until CDNA2
-# shipped, so these are the same generation -- aliased only for this lookup.
+# ROCm source (precision-support.rst included) calls it "CDNA1". Per
+# product-owner confirmation (2026-09-02), CDNA had no numbered siblings
+# until CDNA2 shipped, so these are the same generation -- aliased only for
+# generation-keyed lookups/comparisons (precision join, LLVM cross-check).
 # The sourced `generation` string on the GpuEntry itself is left untouched.
-_PRECISION_LOOKUP_ALIASES = {"CDNA": "CDNA1"}
+# Deliberately NOT extended to LLVM's old-chip naming (VEGA/VEGA7NM for
+# gfx900/gfx906) -- that's a different naming scheme from a different
+# project, not a confirmed alias, so those surface as cross-check warnings
+# instead (see PRD).
+_GENERATION_ALIASES = {"CDNA": "CDNA1"}
 
 
-def build_catalog(gpu_specs: SourceDoc, precision_support: SourceDoc, libdrm_amdgpu_ids: SourceDoc) -> dict:
+def build_catalog(
+    gpu_specs: SourceDoc,
+    precision_support: SourceDoc,
+    libdrm_amdgpu_ids: SourceDoc,
+    llvm_amdgpu_usage: SourceDoc,
+) -> dict:
     gpu_entries = ingest_rocm_gpu_specs.ingest(gpu_specs.text)
     precision_by_generation = ingest_rocm_precision_support.ingest(precision_support.text)
     amdgpu_id_rows = ingest_libdrm_amdgpu_ids.ingest(libdrm_amdgpu_ids.text)
+    llvm_entries = ingest_llvm_amdgpu_usage.ingest(llvm_amdgpu_usage.text)
 
     device_id_report = match_gpu_device_ids.apply_device_ids(gpu_entries, amdgpu_id_rows)
     for product_name in device_id_report.unmatched:
@@ -134,7 +168,7 @@ def build_catalog(gpu_specs: SourceDoc, precision_support: SourceDoc, libdrm_amd
 
     for entry in gpu_entries:
         generation = entry.get("generation")
-        lookup_generation = _PRECISION_LOOKUP_ALIASES.get(generation, generation)
+        lookup_generation = _GENERATION_ALIASES.get(generation, generation)
         precision = precision_by_generation.get(lookup_generation)
         if precision:
             entry["precision_support"] = precision
@@ -145,6 +179,20 @@ def build_catalog(gpu_specs: SourceDoc, precision_support: SourceDoc, libdrm_amd
                 file=sys.stderr,
             )
 
+    cross_check_report = cross_check_llvm.cross_check(gpu_entries, llvm_entries, _GENERATION_ALIASES)
+    for product_name, gfx_target, rocm_generation, llvm_generation in cross_check_report.mismatches:
+        print(
+            f"warning: generation mismatch for {product_name!r} ({gfx_target}): "
+            f"gpu-specs.rst says {rocm_generation!r}, LLVM AMDGPUUsage says {llvm_generation!r}",
+            file=sys.stderr,
+        )
+    for llvm_entry in cross_check_report.new_targets:
+        print(
+            f"warning: LLVM lists {llvm_entry.gfx_target!r} (generation {llvm_entry.generation!r}) "
+            f"which is not yet in gpu-specs.rst",
+            file=sys.stderr,
+        )
+
     return {
         "catalog_version": CATALOG_VERSION,
         "generated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -152,6 +200,7 @@ def build_catalog(gpu_specs: SourceDoc, precision_support: SourceDoc, libdrm_amd
             {"name": gpu_specs.name, "url": gpu_specs.url, "ref": gpu_specs.ref},
             {"name": precision_support.name, "url": precision_support.url, "ref": precision_support.ref},
             {"name": libdrm_amdgpu_ids.name, "url": libdrm_amdgpu_ids.url, "ref": libdrm_amdgpu_ids.ref},
+            {"name": llvm_amdgpu_usage.name, "url": llvm_amdgpu_usage.url, "ref": llvm_amdgpu_usage.ref},
         ],
         "gpus": gpu_entries,
         "npus": [],
@@ -165,8 +214,8 @@ def main(argv: list[str] | None = None) -> int:
         "--fixtures-dir",
         type=Path,
         default=None,
-        help="Read gpu-specs.rst/precision-support.rst/amdgpu.ids from this local "
-        "directory instead of fetching them live (offline mode).",
+        help="Read gpu-specs.rst/precision-support.rst/amdgpu.ids/AMDGPUUsage.rst "
+        "from this local directory instead of fetching them live (offline mode).",
     )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args(argv)
@@ -179,12 +228,16 @@ def main(argv: list[str] | None = None) -> int:
         libdrm_amdgpu_ids = load_fixture(
             "libdrm-amdgpu-ids", args.fixtures_dir / "amdgpu.ids", _libdrm_blob_url()
         )
+        llvm_amdgpu_usage = load_fixture(
+            "llvm-amdgpu-usage", args.fixtures_dir / "AMDGPUUsage.rst", _llvm_blob_url()
+        )
     else:
         gpu_specs = fetch_source("rocm-gpu-specs", GPU_SPECS_PATH)
         precision_support = fetch_source("rocm-precision-support", PRECISION_SUPPORT_PATH)
         libdrm_amdgpu_ids = fetch_libdrm_amdgpu_ids()
+        llvm_amdgpu_usage = fetch_llvm_amdgpu_usage()
 
-    catalog = build_catalog(gpu_specs, precision_support, libdrm_amdgpu_ids)
+    catalog = build_catalog(gpu_specs, precision_support, libdrm_amdgpu_ids, llvm_amdgpu_usage)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(catalog, indent=2, ensure_ascii=False) + "\n")

@@ -70,7 +70,7 @@ running on real hardware.
 |---|---|---|
 | gpuopen ISA XML + `isa_spec_manager` | **Rejected** — wrong layer | Compiler/disassembler-grade instruction encodings. No device, capability, or memory-model data. |
 | `amdsmi` (`rocm-systems/projects/amdsmi`) | **Reference, not source** | Already multi-language (C/Python/Go/Rust). Resolves `device_id` → `target_graphics_version` and correct VRAM/GTT split at runtime, confirmed live on Strix Halo. Does not decode a generation label or expose NPU/precision data. |
-| LLVM `AMDGPUUsage.html` | **Primary source** | Authoritative gfx-target → product family → generation mapping (RDNA3/3.5/4, CDNA3/4). First to reflect brand-new targets. |
+| LLVM `AMDGPUUsage.html` (ingested from its `.rst` source, `llvm/llvm-project` `llvm/docs/AMDGPUUsage.rst`) | **Primary source (implemented 2026-09-02)** | Authoritative gfx-target → product family → generation mapping (RDNA3/3.5/4, CDNA3/4). First to reflect brand-new targets — confirmed live: lists 20 `gfx_target`s (all of RDNA1, plus forward-looking `gfx1250`/`gfx1310` etc.) that `gpu-specs.rst` doesn't have yet. Ingesting the `.rst` source directly (rather than the rendered `.html`) gives a real pinned commit SHA for `ref` instead of only a fetch-date. |
 | `ROCm/ROCm` `docs/reference/gpu-specs.rst` | **Primary source** | Product name, graphics model, generation, gfx target, and detailed hardware specs (compute units, cache, VRAM) for Instinct/Radeon PRO/Radeon/Ryzen APU, as versioned RST tables. |
 | `ROCm/ROCm` `docs/reference/precision-support.rst` | **Primary source** | Per-generation (CDNA1-4, RDNA2-4) data-type/precision capability matrix (fp8 variants, bf16, tf32, int8, etc.) — genuine "what can it do" data. |
 | `ROCm/ROCm` `docs/reference/gpu-arch/index.md` | **Secondary/reference** | Curated links to AMD white papers and ISA reference PDFs per generation. Unstructured; only worth extracting from if a specific fact is missing elsewhere. |
@@ -173,7 +173,7 @@ skill without a parser library).
   "sources": [
     {"name": "rocm-gpu-specs", "url": "https://github.com/ROCm/ROCm/blob/develop/docs/reference/gpu-specs.rst", "ref": "<commit>"},
     {"name": "rocm-precision-support", "url": "...", "ref": "<commit>"},
-    {"name": "llvm-amdgpu-usage", "url": "https://llvm.org/docs/AMDGPUUsage.html", "ref": "<fetch-date>"}
+    {"name": "llvm-amdgpu-usage", "url": "https://github.com/llvm/llvm-project/blob/main/llvm/docs/AMDGPUUsage.rst", "ref": "<commit>"}
   ],
   "gpus": [
     {
@@ -254,7 +254,8 @@ gpuflo's own data model in the first place.
 script):
 - `ingest_rocm_gpu_specs.py` — parses `gpu-specs.rst` RST list-tables into `GpuEntry` records.
 - `ingest_rocm_precision_support.py` — parses `precision-support.rst` into per-generation precision blocks, joined onto `GpuEntry` by `generation`.
-- `ingest_llvm_amdgpu_usage.py` — parses the AMDGPUUsage Processors table for `gfx_target` ↔ `generation` cross-check, and to catch brand-new targets before ROCm's spec table catches up.
+- `ingest_llvm_amdgpu_usage.py` — parses the AMDGPUUsage Processors table for `gfx_target` ↔ `generation` cross-check, and to catch brand-new targets before ROCm's spec table catches up (implemented; see `cross_check_llvm.py` below for the actual comparison logic).
+- `cross_check_llvm.py` — joins LLVM's per-target generation onto ingested `GpuEntry` records; on today's live sources this found 4 known, expected label differences on pre-CDNA/RDNA Instinct cards (ROCm's `"GCN5.1"`/`"GCN5.0"` vs. LLVM's `"VEGA7NM"`/`"VEGA"` — two different projects' naming for the same old silicon, not aliased away) and 20 `gfx_target`s LLVM already lists that `gpu-specs.rst` doesn't yet — including all of RDNA1 (never added to `gpu-specs.rst` at all) and forward-looking placeholders like `gfx1310`/"RDNA5" and `gfx1250`/`gfx1251` (next-gen APU targets, `*TBA*` product names in LLVM's own doc) — exactly the "catch brand-new targets" case this source exists for. Emits build-time warnings only; never adds or changes `GpuEntry` fields (implemented).
 - `ingest_npu_pciids.py` — builds `NpuEntry` records from the NPU PCI-ID sources.
 - `ingest_libdrm_amdgpu_ids.py` — parses `libdrm`'s `data/amdgpu.ids` into raw `device_id, revision_id, product_name` rows (implemented; see §6.3).
 - `match_gpu_device_ids.py` — joins `amdgpu.ids` rows onto `GpuEntry` records by normalized marketing name to populate `device_id`; never guesses on an ambiguous or unmatched name (implemented; see §6.3).

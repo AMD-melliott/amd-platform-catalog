@@ -1,6 +1,6 @@
 {
   "catalog_version": "0.0.1",
-  "generated_at": "2026-09-02T21:32:51Z",
+  "generated_at": "2026-09-02T21:57:41Z",
   "sources": [
     {
       "name": "rocm-gpu-specs",
@@ -16,6 +16,11 @@
       "name": "libdrm-amdgpu-ids",
       "url": "https://gitlab.freedesktop.org/mesa/libdrm/-/blob/main/data/amdgpu.ids",
       "ref": "15cdcfe9e1c4b00f2a819bc1f4b3efa1326ac6bc"
+    },
+    {
+      "name": "llvm-amdgpu-usage",
+      "url": "https://github.com/llvm/llvm-project/blob/main/llvm/docs/AMDGPUUsage.rst",
+      "ref": "012ea2319f73fc24c1614f8c8868c26de6d58ce9"
     }
   ],
   "gpus": [
