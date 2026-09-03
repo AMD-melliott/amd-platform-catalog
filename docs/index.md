@@ -7,9 +7,9 @@ myst:
 
 # AMD Platform Catalog
 
-A versioned, cross-language catalog of AMD GPU and NPU platform facts —
+A versioned, cross-language catalog of AMD GPU and NPU platform facts:
 architecture generation, gfx/LLVM target, hardware specs, precision/data-type
-support, and hand-validated hardware notes — aggregated from AMD's own
+support, and hand-validated hardware notes. It's aggregated from AMD's own
 authoritative public sources.
 
 Source: <https://github.com/AMD-melliott/amd-platform-catalog>

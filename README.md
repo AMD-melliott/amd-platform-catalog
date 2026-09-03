@@ -1,9 +1,9 @@
 # AMD Platform Catalog
 
-A versioned, cross-language catalog of AMD GPU and NPU platform facts —
+A versioned, cross-language catalog of AMD GPU and NPU platform facts:
 architecture generation, gfx/LLVM target, hardware specs, precision/data-type
-support, and hand-validated hardware notes — aggregated from AMD's own
-authoritative public sources so any tool (Rust, Python, Go, or an AI agent)
+support, and hand-validated hardware notes. It's aggregated from AMD's own
+authoritative public sources, so any tool (Rust, Python, Go, or an AI agent)
 can answer "what is this device, and what can it do" without re-deriving the
 answer itself.
 
@@ -22,18 +22,18 @@ not just fetch dates):
 | ROCm `gpu-specs.rst` | GPU identity, generation, gfx target, hardware specs |
 | ROCm `precision-support.rst` | Per-generation data-type support |
 | `libdrm`'s `amdgpu.ids` | GPU `device_id` (joined by marketing name) |
-| LLVM's `AMDGPUUsage.rst` | Build-time cross-check only — flags gfx_target/generation mismatches and brand-new targets ROCm hasn't caught up to yet |
+| LLVM's `AMDGPUUsage.rst` | Build-time cross-check only: flags gfx_target/generation mismatches and brand-new targets ROCm hasn't caught up to yet |
 | `amd/xdna-driver`'s own PCI ID table | NPU identity and hardware generation |
 
 Current catalog: 44 GPU entries, 19 NPU entries, plus a hand-maintained
 notes overlay (`catalog/notes.json`) starting with one entry (Strix Halo's
 `precision_support` gap). Thin bindings exist for Rust (`bindings/rust/`),
-Python (`bindings/python/`), and Go (`bindings/go/`) — all three expose the
+Python (`bindings/python/`), and Go (`bindings/go/`). All three expose the
 same typed lookups and agree on the same golden values (MI300X, Strix Halo).
 An agent skill (`skills/amd-platform-catalog/`) exposes the same lookups to
 an AI coding agent via a dependency-free CLI script.
 
-**Known, documented gaps** (not oversights — see `PRD.md` for the full
+**Known, documented gaps** (not oversights; see `PRD.md` for the full
 writeup of each): a handful of GPU `device_id`s are ambiguous or unmatched by
 `amdgpu.ids`; RDNA3.5 has no column in ROCm's precision-support table; NPU
 `family` is unset wherever `amd/xdna-driver` itself can't statically
@@ -92,10 +92,10 @@ their content from this README and `PRD.md` via MyST `include` directives
 (whole file, or by section for the per-binding/skill pages) rather than
 duplicating it, so the docs site and the in-repo docs can't drift apart:
 
-- `docs/overview.md` — this README's intro/status/layout/build/test sections
-- `docs/bindings/{rust,python,go}.md` — one dedicated page per binding
-- `docs/agent-skill.md` — the agent skill
-- `docs/PRD.md` — the full PRD, built but deliberately left out of the site
+- `docs/overview.md`: this README's intro/status/layout/build/test sections
+- `docs/bindings/{rust,python,go}.md`: one dedicated page per binding
+- `docs/agent-skill.md`: the agent skill
+- `docs/PRD.md`: the full PRD, built but deliberately left out of the site
   navigation for now (marked `:orphan:`) while this is still a personal
   project; `PRD.md` itself is unaffected
 
@@ -139,12 +139,13 @@ repo (`uv`, `cargo`, `gomod`, `github-actions`).
 uv run python -m pytest tests/
 ```
 
-57 tests: ingestion round-trips against pinned fixtures for every source,
-schema-conformance, and golden-entry checks (MI300X, Strix Halo) confirming
-the resolved catalog entries match hand-verified values exactly, plus
-`test_skill.py` validating `skills/amd-platform-catalog/` against the
-agentskills.io spec (frontmatter format, file references, line-count limit)
-and exercising its lookup script against the same golden values.
+57 tests. Ingestion round-trips are checked against pinned fixtures for
+every source, along with schema-conformance and golden-entry checks (MI300X,
+Strix Halo) confirming the resolved catalog entries match hand-verified
+values exactly. `test_skill.py` validates `skills/amd-platform-catalog/`
+against the agentskills.io spec (frontmatter format, file references,
+line-count limit) and exercises its lookup script against the same golden
+values.
 
 ## Using the Rust binding
 
@@ -164,7 +165,7 @@ let strix_halo_npus = catalog.npus_by_device_id("17f0");
 assert_eq!(strix_halo_npus.len(), 3); // NPU4/5/6 share this PCI ID
 ```
 
-No FFI, no subprocess, no shared native runtime — the catalog JSON is
+No FFI, no subprocess, no shared native runtime. The catalog JSON is
 embedded in the crate at compile time via `include_str!`.
 
 ## Using the Python binding
@@ -186,7 +187,7 @@ assert len(strix_halo_npus) == 3  # NPU4/5/6 share this PCI ID
 ```
 
 `catalog.json` is a symlink into `catalog/catalog.json` (the actual file
-package data reads from), packaged alongside the module — no live fetch, no
+package data reads from), packaged alongside the module. No live fetch, no
 network access.
 
 ## Using the Go binding
@@ -208,7 +209,7 @@ strixHaloNPUs := c.NPUsByDeviceID("17f0")
 ```
 
 Unlike the Rust and Python bindings, `bindings/go/catalog.json` is a real
-committed copy of `catalog/catalog.json`, not a symlink — Go's `//go:embed`
+committed copy of `catalog/catalog.json`, not a symlink. Go's `//go:embed`
 refuses to embed symlinks at all. Run `go generate ./...` in `bindings/go/`
 after regenerating the canonical catalog to resync it.
 
@@ -224,7 +225,7 @@ npx skills add AMD-melliott/amd-platform-catalog
 
 or read `skills/amd-platform-catalog/SKILL.md` directly. It ships a
 dependency-free Python CLI (`scripts/catalog_lookup.py`) over a bundled
-catalog snapshot (`assets/catalog.json`, a real copy — not a symlink,
+catalog snapshot (`assets/catalog.json`, a real copy, not a symlink,
 since a tool that installs only this skill's subdirectory wouldn't bring a
 symlink's target along). Same lookups, same notes-overlay behavior, same
 golden values as the three language bindings above:
@@ -240,4 +241,4 @@ catalog to resync the bundled snapshot.
 
 ## License
 
-Not yet decided (see `PRD.md` §11) — leaning MIT.
+Not yet decided (see `PRD.md` §11); leaning MIT.
