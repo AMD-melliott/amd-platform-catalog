@@ -19,10 +19,7 @@ dev = [
     "ruff>=0.16",
 ]
 docs = [
-    "sphinx>=8.0",
-    "myst-parser>=4.0",
-    "furo>=2024.8",
-    "linkify-it-py>=2.0",
+    "rocm-docs-core>=1.40.2",
 ]
 
 [tool.uv]

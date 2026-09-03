@@ -4,3 +4,4 @@ __pycache__/
 .pytest_cache/
 target/
 docs/_build/
+docs/sphinx/_toc.yml

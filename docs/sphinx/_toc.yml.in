@@ -1,0 +1,17 @@
+defaults:
+  numbered: False
+  maxdepth: 2
+root: index.md
+subtrees:
+  - caption: Project
+    entries:
+      - file: overview
+      - file: PRD
+  - caption: Bindings
+    entries:
+      - file: bindings/rust
+      - file: bindings/python
+      - file: bindings/go
+  - caption: Agent skill
+    entries:
+      - file: agent-skill

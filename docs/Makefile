@@ -12,4 +12,4 @@ clean:
 	rm -rf "$(BUILDDIR)"
 
 html:
-	$(SPHINXBUILD) -b html "$(SOURCEDIR)" "$(BUILDDIR)/html" -W $(SPHINXOPTS)
+	$(SPHINXBUILD) -b html "$(SOURCEDIR)" "$(BUILDDIR)/html" $(SPHINXOPTS)
