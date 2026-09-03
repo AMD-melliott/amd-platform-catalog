@@ -8,8 +8,11 @@ table is ingested purely as a build-time cross-check (see cross_check_llvm.py)
 mismatches and gfx_targets not yet in gpu-specs.rst; amd/xdna-driver's own
 PCI ID table populates ``npus`` directly (see ingest_xdna_pciids.py -- family
 is left unset where the driver source itself provides no marketing name).
-The hand-maintained notes overlay is a later PRD phase -- ``notes`` is
-emitted as an empty array on purpose, not silently populated.
+The hand-maintained notes overlay (PRD §6.5) is loaded verbatim from
+``catalog/notes.json`` -- a hand-authored file, not derived from any
+ingested source, so it has no fetch/fixture split like the sources above.
+It starts out holding only real, human-confirmed notes; there's no
+mechanism here to synthesize one.
 """
 
 from __future__ import annotations
@@ -60,6 +63,19 @@ XDNA_REGS_FILENAMES = ["npu1_regs.c", "npu3_regs.c", "npu4_regs.c", "npu5_regs.c
 CATALOG_VERSION = "0.1.0"
 
 DEFAULT_OUTPUT = Path("catalog/catalog.json")
+DEFAULT_NOTES = Path("catalog/notes.json")
+
+
+def load_notes(path: Path) -> list[dict]:
+    """Loads the hand-maintained notes overlay (PRD §6.5), if present.
+
+    Notes are authored directly, not derived from any ingested source --
+    there's no live-fetch/fixture split to handle here, just a file that may
+    not exist yet.
+    """
+    if not path.exists():
+        return []
+    return json.loads(path.read_text())
 
 
 @dataclasses.dataclass
@@ -199,6 +215,7 @@ def build_catalog(
     libdrm_amdgpu_ids: SourceDoc,
     llvm_amdgpu_usage: SourceDoc,
     xdna_pciids: XdnaSource,
+    notes: list[dict] | None = None,
 ) -> dict:
     gpu_entries = ingest_rocm_gpu_specs.ingest(gpu_specs.text)
     precision_by_generation = ingest_rocm_precision_support.ingest(precision_support.text)
@@ -274,7 +291,7 @@ def build_catalog(
         ],
         "gpus": gpu_entries,
         "npus": npu_entries,
-        "notes": [],
+        "notes": notes if notes is not None else [],
     }
 
 
@@ -289,6 +306,13 @@ def main(argv: list[str] | None = None) -> int:
         "(offline mode).",
     )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--notes-file",
+        type=Path,
+        default=DEFAULT_NOTES,
+        help="Hand-maintained notes overlay (PRD §6.5) to merge in verbatim. "
+        "Missing file is treated as no notes, not an error.",
+    )
     args = parser.parse_args(argv)
 
     if args.fixtures_dir:
@@ -310,7 +334,8 @@ def main(argv: list[str] | None = None) -> int:
         llvm_amdgpu_usage = fetch_llvm_amdgpu_usage()
         xdna_pciids = fetch_xdna_pciids()
 
-    catalog = build_catalog(gpu_specs, precision_support, libdrm_amdgpu_ids, llvm_amdgpu_usage, xdna_pciids)
+    notes = load_notes(args.notes_file)
+    catalog = build_catalog(gpu_specs, precision_support, libdrm_amdgpu_ids, llvm_amdgpu_usage, xdna_pciids, notes)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(catalog, indent=2, ensure_ascii=False) + "\n")

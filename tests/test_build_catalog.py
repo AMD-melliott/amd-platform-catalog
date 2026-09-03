@@ -57,9 +57,29 @@ def test_golden_entries_after_precision_join():
     assert mi100["precision_support"]["int64"] is True
 
 
-def test_notes_explicitly_empty_at_this_phase():
+def test_notes_default_to_empty_when_none_given():
     catalog = _built_catalog()
     assert catalog["notes"] == []
+
+
+def test_notes_are_merged_in_verbatim_when_given():
+    strix_halo_note = {
+        "device_id": "1586",
+        "field": "precision_support",
+        "note": "not yet hand-validated on real hardware",
+        "validated_on": "2026-09-02",
+        "validated_by": "matt.elliott@amd.com",
+    }
+    catalog = build_catalog(
+        _fixture_source("rocm-gpu-specs", "gpu-specs.rst"),
+        _fixture_source("rocm-precision-support", "precision-support.rst"),
+        _fixture_source("libdrm-amdgpu-ids", "amdgpu.ids"),
+        _fixture_source("llvm-amdgpu-usage", "AMDGPUUsage.rst"),
+        load_xdna_fixture(FIXTURES),
+        notes=[strix_halo_note],
+    )
+    jsonschema.Draft202012Validator(SCHEMA).validate(catalog)
+    assert catalog["notes"] == [strix_halo_note]
 
 
 def test_npu_entries_populated_from_xdna_driver():
