@@ -218,9 +218,20 @@ via `include_str!`, parses once (`OnceLock`), exposes `gpu_by_device_id`,
 `gpus_by_gfx_target`, `gpus_by_generation`, `npus_by_device_id` (+revision
 variant), `notes_for_device`, and `resolve_gpu` (applies the notes overlay).
 The notes-overlay implementation currently only supports overrides whose
-`field` is `"specs.<key>"` — `catalog.json` has zero real notes yet, so
-there's no concrete example of a top-level-field override to design
-against; extend `apply_gpu_overrides` when one exists.
+`field` is `"specs.<key>"` — `catalog.json` has exactly one real note so far
+(Strix Halo's unvalidated `precision_support`, annotation-only, no
+`override`), so there's still no concrete example of a top-level-field
+override to design against; extend `apply_gpu_overrides` when one exists.
+
+**Python (`bindings/python/`, implemented 2026-09-03) and Go
+(`bindings/go/`, implemented 2026-09-03).** Same API shape as the Rust
+crate, one method/function per verb above. Python packages `catalog.json`
+as package data (a symlink to the canonical file, read via
+`importlib.resources`); Go embeds a **committed copy** of `catalog.json` via
+`//go:embed`, since Go's embed directive refuses to embed symlinks outright
+— resynced with `go generate ./...` after the canonical catalog changes.
+Both pass the same golden-value tests (MI300X, Strix Halo, NPU ambiguity,
+notes overlay) as the Rust crate, demonstrating cross-language parity.
 
 ### 7.4 Agent skill architecture
 
@@ -369,5 +380,5 @@ script):
 | 0 — Spike | Ingestion script for `gpu-specs.rst` + `precision-support.rst` only; hand-verify Strix Halo and MI300X rows | Parsed output matches known-good values — **done 2026-09-02** |
 | 1 — Catalog repo | Full ingestion (add LLVM + NPU sources); first versioned JSON release | `v0.1.0` catalog published with source provenance — **done 2026-09-02** (ingestion complete with real pinned source refs for all 5 sources; `v0.1.0` stamped in `catalog.json`. "Published" here means the artifact + provenance are correct and versioned, not that a GitHub Release/tag has been cut yet — that's a separate, later action.) |
 | 2 — Rust wrapper | Thin crate wrapping the catalog; migrate gpuflo's `platform.rs` to consume it | gpuflo depends on catalog; existing tests unchanged — **crate half done 2026-09-02** (`bindings/rust/`: embeds `catalog.json` via `include_str!`, typed lookups by device_id/gfx_target/generation, notes-overlay resolution, 9 passing tests incl. MI300X/Strix Halo goldens). Migrating gpuflo's `platform.rs` itself is **not done** — gpuflo lives in a separate repo this session has no access to; that half needs doing from within gpuflo's own repo. |
-| 3 — Python + Go wrappers | Mirror the Rust wrapper | Cross-language parity demonstrated; ready to propose to Mike for rocm-cli |
+| 3 — Python + Go wrappers | Mirror the Rust wrapper | Cross-language parity demonstrated — **done 2026-09-03** (`bindings/python/` and `bindings/go/` expose the same API shape as the Rust crate — `embedded()`/`Embedded()`, device/gfx-target/generation lookups, `resolve_gpu`/`ResolveGPU` notes-overlay application, `notes_for_device`/`NotesForDevice` — and pass the same 10 golden-value tests, MI300X/Strix Halo/NPU included, as `bindings/rust`). Proposing to Mike for rocm-cli is a separate, later action, **not done**. |
 | 4 — NPU + skill | Verify NPU table against `xdna-driver` source; write the agent skill | Skill usable by an agent with no prior repo context — NPU table verification **done 2026-09-02** (see §5/§6.4); agent skill still outstanding |
