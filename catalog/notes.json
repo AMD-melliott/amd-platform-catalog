@@ -1,0 +1,9 @@
+[
+  {
+    "device_id": "1586",
+    "field": "precision_support",
+    "note": "precision_support is unset for this entry (RDNA3.5 has no column in ROCm's precision-support.rst), but even setting that gap aside, no one has hand-validated actual data-type support on real Strix Halo hardware yet. Treat any future precision_support value here as unconfirmed until it has been.",
+    "validated_on": "2026-09-02",
+    "validated_by": "matt.elliott@amd.com"
+  }
+]

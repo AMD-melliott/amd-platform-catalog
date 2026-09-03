@@ -280,6 +280,22 @@ mod tests {
     }
 
     #[test]
+    fn strix_halo_has_unvalidated_precision_support_note() {
+        let catalog = Catalog::embedded();
+        let notes = catalog.notes_for_device("1586");
+        let precision_note = notes
+            .iter()
+            .find(|n| n.field == "precision_support")
+            .expect("Strix Halo should carry a note about unvalidated precision_support");
+        assert!(precision_note.note.contains("hand-validated"));
+        assert!(precision_note.override_value.is_none());
+
+        // An annotation-only note (no override) must not affect resolve_gpu.
+        let resolved = catalog.resolve_gpu("1586").unwrap();
+        assert!(resolved.precision_support.is_none());
+    }
+
+    #[test]
     fn notes_for_device_surfaces_explicitly_even_when_no_override() {
         let mut catalog = Catalog::embedded().clone();
         catalog.notes = vec![NoteEntry {
