@@ -15,17 +15,12 @@ re-deriving the answer itself.
 
 ## 2. Problem statement
 
-Every tool that monitors or manages AMD hardware currently re-solves the same
-problem in isolation:
-
-- **gpuflo** hardcodes a single PCI device-ID correction (Strix Halo,
-  `1002:1586`) to fix a misleading KFD heap-type report, with no generalized
-  concept of "what architecture/generation is this."
-- **rocm-cli** is taking an independent approach to device detection
-  (per conversation with its maintainer, Mike Roy).
-- Matt has hit this same gap across multiple other AMD-adjacent products.
-- `instinct-dash` solved it for exactly two platforms (MI300X, Strix Halo)
-  with a hardcoded provider split — not designed to generalize.
+Tools that monitor or manage AMD hardware tend to re-solve the same problem
+in isolation: a hardcoded PCI device-ID correction here, a hardcoded
+two-platform special case there, no generalized concept of "what
+architecture/generation is this device, and what can it do." Each fix is
+narrow, doesn't generalize to the next device, and re-derives facts that are
+already published somewhere authoritative.
 
 None of this is because the underlying data doesn't exist. It's scattered:
 AMD/LLVM publish authoritative generation and precision-support tables, but
@@ -169,7 +164,7 @@ A single versioned JSON document (JSON chosen over YAML/TOML: zero extra
 dependencies in Rust, Python, or Go, and directly readable by an agent
 skill without a parser library).
 
-```jsonc
+```json
 {
   "catalog_version": "0.1.0",
   "generated_at": "2026-09-02T00:00:00Z",
@@ -233,43 +228,58 @@ as package data (a symlink to the canonical file, read via
 Both pass the same golden-value tests (MI300X, Strix Halo, NPU ambiguity,
 notes overlay) as the Rust crate, demonstrating cross-language parity.
 
-### 7.4 Agent skill architecture
+### 7.4 Agent skill architecture (implemented 2026-09-03)
 
-The skill teaches an agent to answer platform-capability questions directly
-from the catalog, without re-deriving them or, worse, guessing.
+`skills/amd-platform-catalog/` teaches an agent to answer
+platform-capability questions directly from the catalog, without
+re-deriving them or, worse, guessing. Built to two external specs so it's
+usable outside this repo/session:
+[agentskills.io's specification](https://agentskills.io/specification)
+(`SKILL.md` frontmatter/format, `scripts`/`references`/`assets`
+conventions) and
+[vercel-labs/skills](https://github.com/vercel-labs/skills)' `npx skills
+add owner/repo` installer, which discovers `skills/<name>/SKILL.md` at a
+repo's root with no extra manifest needed.
 
-**Distribution.** The skill ships as a standard `SKILL.md` plus a small set
-of optional helper scripts, most plausibly in its own directory in this
-repo. It carries a bundled snapshot of the catalog for fast, offline lookups,
-and documents the pinned GitHub Releases asset URL so an agent working on
-something recent can fetch a newer catalog when the bundled one is behind.
-The skill's own frontmatter records which `catalog_version` range it was
-authored against, so a future breaking schema change can't silently mislead
-an agent running an old skill copy against a new catalog (or vice versa).
+**Distribution.** `SKILL.md` plus one dependency-free Python helper script
+(`scripts/catalog_lookup.py`, stdlib-only), in its own directory
+(`skills/amd-platform-catalog/`). It carries a bundled snapshot of the
+catalog (`assets/catalog.json`) for fast, offline lookups — a **real
+committed copy**, not a symlink to `catalog/catalog.json`, since a tool
+that installs only this skill's own subdirectory (as `npx skills add`
+does) wouldn't bring a symlink's target along; same reasoning as the Go
+binding's `bindings/go/catalog.json` (§7.3). Resynced with
+`scripts/sync_catalog_snapshot.sh`. No GitHub Release has been cut for this
+project yet (§12 Phase 1 note), so there is no real pinned release-asset
+URL to document yet — `SKILL.md` says this plainly and points at the
+(currently empty) Releases page instead of fabricating one. The skill's
+frontmatter records `bundled_catalog_version` in `metadata` so a future
+breaking schema change can't silently mislead an agent running an old
+skill copy against a new catalog.
 
-**Verbs it teaches:**
+**Verbs it teaches** (all implemented as `catalog_lookup.py` subcommands,
+mirroring the Rust/Python/Go bindings' method names 1:1):
 1. Look up a device by PCI device ID (+ optional revision) → the fully
-   resolved entry, with the notes overlay already applied.
-2. Look up all products sharing a gfx/LLVM target or generation.
-3. Check NPU presence/generation for a given GPU device ID, via
-   `associated_gpu_device_ids`.
+   resolved entry, with the notes overlay already applied (`resolve`).
+2. Look up all products sharing a gfx/LLVM target or generation (`gpus`).
+3. Check NPU presence/generation for a given GPU device ID (`npu`).
 4. List every note/override for a device — surfaced explicitly, never
-   silently folded into "the data."
+   silently folded into "the data" (`notes`).
 5. Explain provenance for a given fact — walk back to the `sources` entry
-   that backs it.
+   that backs it (`sources`, plus a field→source table in `SKILL.md`).
 
-**Mechanics.** The catalog is small plain JSON, so the skill's instructions
-primarily teach direct reads (`Read`, or `jq` via Bash) rather than requiring
-a bespoke CLI. A minimal lookup helper script is still worth shipping for the
-cross-referencing queries (verbs 2-4), so the agent isn't hand-writing `jq`
-filters for the same joins every time — this becomes one of the CLI tools
-listed in §8.
+**Mechanics.** The catalog is small plain JSON, so `SKILL.md` also notes
+that a one-off raw peek can just read the file directly — the script exists
+so the cross-referencing queries (verbs 1-4, specifically the notes-overlay
+join) don't need to be hand-written as `jq`/ad hoc parsing every time, and
+so behavior stays identical to the three language bindings.
 
-**Failure mode.** When a device ID isn't in the catalog, the skill's
-instructions must tell the agent to say so plainly ("not yet cataloged") and
-suggest filing an entry — never to guess a generation or capability by
-analogy. This mirrors the "never synthesize, never guess" ethos that shaped
-gpuflo's own data model in the first place.
+**Failure mode.** When a device ID isn't in the catalog, `catalog_lookup.py`
+exits 1 with `{"found": false, "message": "not yet cataloged", ...}`, and
+`SKILL.md` instructs the agent to relay that plainly and suggest filing a
+catalog entry — never to guess a generation or capability by analogy. This
+"never synthesize, never guess" ethos is the same one that shaped the
+catalog's own data model in §6.
 
 ## 8. Tooling: scripts, tests, and validation
 
@@ -309,9 +319,6 @@ script):
 - Catalog covers every product row in the current ROCm `gpu-specs.rst`
   (Instinct, Radeon PRO, Radeon, Ryzen APU) plus the known NPU device IDs.
 - Every entry traces to a named, versioned source — no un-sourced facts.
-- gpuflo's `platform.rs` can be re-pointed at the catalog for generation
-  labeling with zero behavior change to its existing device-specific
-  corrections (Strix Halo GTT accounting stays correct).
 - A second language (Python or Go) consumes the same catalog with a
   comparably small amount of glue code, proving the "thin binding" claim.
 
@@ -356,8 +363,8 @@ script):
   designed, rather than guessed at now. There's also an interaction with
   the notes layer: does a note ever need its own validity window ("true as
   of catalog version X, before this device went EOS")? Not blocking v1.
-- License for the catalog + wrapper packages (leaning MIT to match
-  `isa_spec_manager` and general ecosystem convention — not yet decided).
+- License for the catalog + wrapper packages (leaning MIT to match general
+  ecosystem convention — not yet decided).
 - Update cadence / trigger for re-running ingestion (manual vs. watching
   upstream repos for changes; see the source-drift automation idea in §8).
 - Whether `specs`/`precision_support` should be included verbatim per
@@ -379,6 +386,6 @@ script):
 |---|---|---|
 | 0 — Spike | Ingestion script for `gpu-specs.rst` + `precision-support.rst` only; hand-verify Strix Halo and MI300X rows | Parsed output matches known-good values — **done 2026-09-02** |
 | 1 — Catalog repo | Full ingestion (add LLVM + NPU sources); first versioned JSON release | `v0.1.0` catalog published with source provenance — **done 2026-09-02** (ingestion complete with real pinned source refs for all 5 sources; `v0.1.0` stamped in `catalog.json`. "Published" here means the artifact + provenance are correct and versioned, not that a GitHub Release/tag has been cut yet — that's a separate, later action.) |
-| 2 — Rust wrapper | Thin crate wrapping the catalog; migrate gpuflo's `platform.rs` to consume it | gpuflo depends on catalog; existing tests unchanged — **crate half done 2026-09-02** (`bindings/rust/`: embeds `catalog.json` via `include_str!`, typed lookups by device_id/gfx_target/generation, notes-overlay resolution, 9 passing tests incl. MI300X/Strix Halo goldens). Migrating gpuflo's `platform.rs` itself is **not done** — gpuflo lives in a separate repo this session has no access to; that half needs doing from within gpuflo's own repo. |
-| 3 — Python + Go wrappers | Mirror the Rust wrapper | Cross-language parity demonstrated — **done 2026-09-03** (`bindings/python/` and `bindings/go/` expose the same API shape as the Rust crate — `embedded()`/`Embedded()`, device/gfx-target/generation lookups, `resolve_gpu`/`ResolveGPU` notes-overlay application, `notes_for_device`/`NotesForDevice` — and pass the same 10 golden-value tests, MI300X/Strix Halo/NPU included, as `bindings/rust`). Proposing to Mike for rocm-cli is a separate, later action, **not done**. |
-| 4 — NPU + skill | Verify NPU table against `xdna-driver` source; write the agent skill | Skill usable by an agent with no prior repo context — NPU table verification **done 2026-09-02** (see §5/§6.4); agent skill still outstanding |
+| 2 — Rust wrapper | Thin crate wrapping the catalog | **Done 2026-09-02** (`bindings/rust/`: embeds `catalog.json` via `include_str!`, typed lookups by device_id/gfx_target/generation, notes-overlay resolution, 9 passing tests incl. MI300X/Strix Halo goldens). Adopting this binding in any downstream tool is out of scope for this repo/PRD. |
+| 3 — Python + Go wrappers | Mirror the Rust wrapper | Cross-language parity demonstrated — **done 2026-09-03** (`bindings/python/` and `bindings/go/` expose the same API shape as the Rust crate — `embedded()`/`Embedded()`, device/gfx-target/generation lookups, `resolve_gpu`/`ResolveGPU` notes-overlay application, `notes_for_device`/`NotesForDevice` — and pass the same 10 golden-value tests, MI300X/Strix Halo/NPU included, as `bindings/rust`). |
+| 4 — NPU + skill | Verify NPU table against `xdna-driver` source; write the agent skill | Skill usable by an agent with no prior repo context — **done 2026-09-03** (NPU table verification done 2026-09-02, see §5/§6.4; agent skill at `skills/amd-platform-catalog/`, see §7.4, following the agentskills.io spec and installable via `npx skills add`) |

@@ -6,9 +6,7 @@ import jsonschema
 from tools.catalog_build.build_catalog import SourceDoc, build_catalog, load_xdna_fixture
 
 FIXTURES = Path(__file__).parent / "fixtures"
-SCHEMA = json.loads(
-    (Path(__file__).parents[1] / "catalog" / "schema" / "catalog.schema.json").read_text()
-)
+SCHEMA = json.loads((Path(__file__).parents[1] / "catalog" / "schema" / "catalog.schema.json").read_text())
 
 
 def _fixture_source(name: str, filename: str) -> SourceDoc:

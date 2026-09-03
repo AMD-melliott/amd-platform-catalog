@@ -39,10 +39,7 @@ def ingest(text: str) -> list[AmdgpuIdRow]:
             continue
         parts = [part.strip() for part in line.split(",")]
         if len(parts) != 3:
-            raise ValueError(
-                f"amdgpu.ids line {lineno}: expected 3 comma-separated fields, "
-                f"got {len(parts)}: {line!r}"
-            )
+            raise ValueError(f"amdgpu.ids line {lineno}: expected 3 comma-separated fields, got {len(parts)}: {line!r}")
         device_id, revision_id, product_name = parts
         if not _DEVICE_ID_RE.match(device_id):
             raise ValueError(f"amdgpu.ids line {lineno}: device_id {device_id!r} is not 4 hex digits")

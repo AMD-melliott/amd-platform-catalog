@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.0.1
+      - run: uv sync
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run python -m pytest tests/ -q
+      - name: bindings/python tests
+        working-directory: bindings/python
+        run: |
+          uv sync
+          uv run pytest -q
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: cargo fmt --check
+        working-directory: bindings/rust
+        run: cargo fmt --check
+      - name: cargo clippy
+        working-directory: bindings/rust
+        run: cargo clippy --all-targets -- -D warnings
+      - name: cargo test
+        working-directory: bindings/rust
+        run: cargo test
+
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: bindings/go/go.mod
+      - name: gofmt
+        working-directory: bindings/go
+        run: |
+          fmt_out="$(gofmt -l .)"
+          if [ -n "$fmt_out" ]; then
+            echo "gofmt would reformat:"
+            echo "$fmt_out"
+            exit 1
+          fi
+      - name: go vet
+        working-directory: bindings/go
+        run: go vet ./...
+      - name: go test
+        working-directory: bindings/go
+        run: go test ./...
