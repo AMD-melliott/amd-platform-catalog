@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import dataclasses
 import io
+from typing import ClassVar
 
 from docutils import nodes
 from docutils.frontend import get_default_settings
@@ -33,7 +34,7 @@ class _TabItem(Directive):
     required_arguments = 1
     optional_arguments = 0
     final_argument_whitespace = True
-    option_spec = {"sync": directives.unchanged, "name": directives.unchanged}
+    option_spec: ClassVar = {"sync": directives.unchanged, "name": directives.unchanged}
 
     def run(self) -> list[nodes.Node]:
         node = nodes.container()

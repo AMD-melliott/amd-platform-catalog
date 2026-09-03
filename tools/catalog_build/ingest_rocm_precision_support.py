@@ -50,8 +50,7 @@ def _find_native_support_table(rst_text: str):
         if table.header == expected_header:
             return table
     raise ValueError(
-        "could not find the HIP C++ type implementation-support matrix table "
-        f"(expected header {expected_header!r})"
+        f"could not find the HIP C++ type implementation-support matrix table (expected header {expected_header!r})"
     )
 
 

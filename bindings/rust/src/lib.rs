@@ -103,7 +103,9 @@ fn normalize_hex(id: &str) -> String {
 /// override target today.
 fn apply_gpu_overrides(mut entry: GpuEntry, notes: &[&NoteEntry]) -> GpuEntry {
     for note in notes {
-        let Some(value) = &note.override_value else { continue };
+        let Some(value) = &note.override_value else {
+            continue;
+        };
         if let Some(key) = note.field.strip_prefix("specs.") {
             entry.specs.insert(key.to_string(), value.clone());
         }
@@ -136,9 +138,9 @@ impl Catalog {
     /// Raw lookup by PCI device ID, no notes overlay applied. Case-insensitive.
     pub fn gpu_by_device_id(&self, device_id: &str) -> Option<&GpuEntry> {
         let device_id = normalize_hex(device_id);
-        self.gpus
-            .iter()
-            .find(|g| g.device_id.as_deref().map(normalize_hex).as_deref() == Some(device_id.as_str()))
+        self.gpus.iter().find(|g| {
+            g.device_id.as_deref().map(normalize_hex).as_deref() == Some(device_id.as_str())
+        })
     }
 
     /// Looks up a GPU by device ID and applies its notes overlay (PRD §7.3).
@@ -150,11 +152,17 @@ impl Catalog {
     }
 
     pub fn gpus_by_gfx_target(&self, gfx_target: &str) -> Vec<&GpuEntry> {
-        self.gpus.iter().filter(|g| g.gfx_target == gfx_target).collect()
+        self.gpus
+            .iter()
+            .filter(|g| g.gfx_target == gfx_target)
+            .collect()
     }
 
     pub fn gpus_by_generation(&self, generation: &str) -> Vec<&GpuEntry> {
-        self.gpus.iter().filter(|g| g.generation == generation).collect()
+        self.gpus
+            .iter()
+            .filter(|g| g.generation == generation)
+            .collect()
     }
 
     /// All NPU rows for a device ID (may be several -- see PRD §6.4: one
@@ -162,15 +170,23 @@ impl Catalog {
     /// generations).
     pub fn npus_by_device_id(&self, device_id: &str) -> Vec<&NpuEntry> {
         let device_id = normalize_hex(device_id);
-        self.npus.iter().filter(|n| normalize_hex(&n.device_id) == device_id).collect()
+        self.npus
+            .iter()
+            .filter(|n| normalize_hex(&n.device_id) == device_id)
+            .collect()
     }
 
-    pub fn npu_by_device_id_and_revision(&self, device_id: &str, revision_id: &str) -> Option<&NpuEntry> {
+    pub fn npu_by_device_id_and_revision(
+        &self,
+        device_id: &str,
+        revision_id: &str,
+    ) -> Option<&NpuEntry> {
         let device_id = normalize_hex(device_id);
         let revision_id = normalize_hex(revision_id);
         self.npus.iter().find(|n| {
             normalize_hex(&n.device_id) == device_id
-                && n.revision_id.as_deref().map(normalize_hex).as_deref() == Some(revision_id.as_str())
+                && n.revision_id.as_deref().map(normalize_hex).as_deref()
+                    == Some(revision_id.as_str())
         })
     }
 
@@ -179,7 +195,10 @@ impl Catalog {
     /// data" (see also `resolve_gpu`, which applies a subset of these).
     pub fn notes_for_device(&self, device_id: &str) -> Vec<&NoteEntry> {
         let device_id = normalize_hex(device_id);
-        self.notes.iter().filter(|n| normalize_hex(&n.device_id) == device_id).collect()
+        self.notes
+            .iter()
+            .filter(|n| normalize_hex(&n.device_id) == device_id)
+            .collect()
     }
 }
 
@@ -197,13 +216,18 @@ mod tests {
     #[test]
     fn mi300x_golden_lookup() {
         let catalog = Catalog::embedded();
-        let entry = catalog.gpu_by_device_id("74a1").expect("MI300X should resolve by device_id");
+        let entry = catalog
+            .gpu_by_device_id("74a1")
+            .expect("MI300X should resolve by device_id");
         assert_eq!(entry.product_name, "MI300X");
         assert_eq!(entry.generation, "CDNA3");
         assert_eq!(entry.gfx_target, "gfx942");
         assert_eq!(entry.memory_model, MemoryModel::Dedicated);
         assert_eq!(
-            entry.precision_support.as_ref().and_then(|p| p.get("fp8_e4m3_fnuz")),
+            entry
+                .precision_support
+                .as_ref()
+                .and_then(|p| p.get("fp8_e4m3_fnuz")),
             Some(&true)
         );
     }
@@ -218,7 +242,9 @@ mod tests {
     #[test]
     fn strix_halo_golden_lookup_has_no_precision_support() {
         let catalog = Catalog::embedded();
-        let entry = catalog.gpu_by_device_id("1586").expect("Strix Halo should resolve by device_id");
+        let entry = catalog
+            .gpu_by_device_id("1586")
+            .expect("Strix Halo should resolve by device_id");
         assert_eq!(entry.product_name, "AMD Ryzen AI Max+ PRO 395");
         assert_eq!(entry.generation, "RDNA3.5");
         assert_eq!(entry.memory_model, MemoryModel::Unified);
@@ -239,7 +265,10 @@ mod tests {
         let rows = catalog.npus_by_device_id("17f0");
         assert_eq!(rows.len(), 3);
         for row in &rows {
-            assert_eq!(row.family.as_deref(), Some("Strix / Krackan / Strix Halo / Gorgon Point"));
+            assert_eq!(
+                row.family.as_deref(),
+                Some("Strix / Krackan / Strix Halo / Gorgon Point")
+            );
         }
     }
 

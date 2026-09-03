@@ -30,8 +30,8 @@ notes overlay (`catalog/notes.json`) starting with one entry (Strix Halo's
 `precision_support` gap). Thin bindings exist for Rust (`bindings/rust/`),
 Python (`bindings/python/`), and Go (`bindings/go/`) — all three expose the
 same typed lookups and agree on the same golden values (MI300X, Strix Halo).
-Migrating `gpuflo`'s `platform.rs` to consume the Rust binding is a separate
-task in that other repo. The agent skill (Phase 4) isn't started yet.
+An agent skill (`skills/amd-platform-catalog/`) exposes the same lookups to
+an AI coding agent via a dependency-free CLI script.
 
 **Known, documented gaps** (not oversights — see `PRD.md` for the full
 writeup of each): a handful of GPU `device_id`s are ambiguous or unmatched by
@@ -43,6 +43,9 @@ disambiguate a marketing name from a PCI ID alone.
 
 ```
 PRD.md                       Full design doc
+docs/                        Sphinx docs site (published to GitHub Pages)
+.github/workflows/           CI: tests+lint (ci.yml), docs deploy (docs.yml), security (security.yml, codeql.yml)
+.github/dependabot.yml        Dependency update PRs for every ecosystem in this repo
 catalog/
   catalog.json                The built, versioned catalog artifact
   notes.json                   Hand-maintained notes overlay (PRD §6.5)
@@ -62,6 +65,7 @@ tests/                        pytest suite + pinned RST/C fixtures (offline)
 bindings/rust/                Thin Rust binding crate (embeds catalog.json)
 bindings/python/               Thin Python binding package (embeds catalog.json)
 bindings/go/                   Thin Go binding module (embeds a synced copy of catalog.json)
+skills/amd-platform-catalog/   Agent skill (agentskills.io spec) -- see its SKILL.md
 ```
 
 ## Building the catalog
@@ -80,15 +84,53 @@ precision data, cross-source generation mismatches, brand-new LLVM targets).
 Pass `--fixtures-dir tests/fixtures` to build offline from the pinned
 snapshots used by the test suite instead.
 
+## Documentation site
+
+The Sphinx docs site under `docs/` publishes this README and `PRD.md`
+as-is (via MyST's `include` directive, so there's one source of truth, not
+a docs site that drifts) rather than duplicating their content. Build it
+locally:
+
+```bash
+uv sync --group docs
+uv run --group docs sphinx-build -b html docs docs/_build/html -W
+```
+
+`.github/workflows/docs.yml` builds and deploys it to GitHub Pages on every
+push to `main`.
+
+## Linting and CI
+
+`.github/workflows/ci.yml` runs on every push/PR to `main`: `ruff check`
++ `ruff format --check` + the pytest suites (root and `bindings/python`);
+`cargo fmt --check` + `cargo clippy --all-targets -- -D warnings` +
+`cargo test` for `bindings/rust`; `gofmt -l` + `go vet` + `go test` for
+`bindings/go`. Run the same commands locally before pushing:
+
+```bash
+uv run ruff check . && uv run ruff format --check .
+(cd bindings/rust && cargo fmt --check && cargo clippy --all-targets -- -D warnings)
+(cd bindings/go && gofmt -l . && go vet ./...)
+```
+
+`.github/workflows/security.yml` runs a secret scan (gitleaks), a large-file
+tripwire, and (on PRs) a dependency-vulnerability review;
+`.github/workflows/codeql.yml` runs CodeQL against the Python and Go code.
+`.github/dependabot.yml` opens weekly update PRs for every ecosystem in this
+repo (`uv`, `cargo`, `gomod`, `github-actions`).
+
 ## Running the tests
 
 ```bash
 uv run python -m pytest tests/
 ```
 
-38 tests: ingestion round-trips against pinned fixtures for every source,
+57 tests: ingestion round-trips against pinned fixtures for every source,
 schema-conformance, and golden-entry checks (MI300X, Strix Halo) confirming
-the resolved catalog entries match hand-verified values exactly.
+the resolved catalog entries match hand-verified values exactly, plus
+`test_skill.py` validating `skills/amd-platform-catalog/` against the
+agentskills.io spec (frontmatter format, file references, line-count limit)
+and exercising its lookup script against the same golden values.
 
 ## Using the Rust binding
 
@@ -155,6 +197,32 @@ Unlike the Rust and Python bindings, `bindings/go/catalog.json` is a real
 committed copy of `catalog/catalog.json`, not a symlink — Go's `//go:embed`
 refuses to embed symlinks at all. Run `go generate ./...` in `bindings/go/`
 after regenerating the canonical catalog to resync it.
+
+## Using the agent skill
+
+`skills/amd-platform-catalog/` follows the
+[agentskills.io specification](https://agentskills.io/specification) and is
+installable with [vercel-labs/skills](https://github.com/vercel-labs/skills):
+
+```bash
+npx skills add AMD-melliott/amd-platform-catalog
+```
+
+or read `skills/amd-platform-catalog/SKILL.md` directly. It ships a
+dependency-free Python CLI (`scripts/catalog_lookup.py`) over a bundled
+catalog snapshot (`assets/catalog.json`, a real copy — not a symlink,
+since a tool that installs only this skill's subdirectory wouldn't bring a
+symlink's target along). Same lookups, same notes-overlay behavior, same
+golden values as the three language bindings above:
+
+```bash
+cd skills/amd-platform-catalog
+python3 scripts/catalog_lookup.py resolve 74a1   # MI300X, notes overlay applied
+python3 scripts/catalog_lookup.py npu 17f0       # NPU4/5/6 share this PCI ID
+```
+
+Run `scripts/sync_catalog_snapshot.sh` after regenerating the canonical
+catalog to resync the bundled snapshot.
 
 ## License
 

@@ -148,9 +148,7 @@ def _libdrm_latest_commit_sha() -> str:
 def fetch_libdrm_amdgpu_ids() -> SourceDoc:
     resp = requests.get(_libdrm_raw_url(), timeout=30)
     resp.raise_for_status()
-    return SourceDoc(
-        name="libdrm-amdgpu-ids", url=_libdrm_blob_url(), ref=_libdrm_latest_commit_sha(), text=resp.text
-    )
+    return SourceDoc(name="libdrm-amdgpu-ids", url=_libdrm_blob_url(), ref=_libdrm_latest_commit_sha(), text=resp.text)
 
 
 def load_fixture(name: str, file_path: Path, url: str) -> SourceDoc:
@@ -277,7 +275,7 @@ def build_catalog(
 
     return {
         "catalog_version": CATALOG_VERSION,
-        "generated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "generated_at": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "sources": [
             {"name": gpu_specs.name, "url": gpu_specs.url, "ref": gpu_specs.ref},
             {"name": precision_support.name, "url": precision_support.url, "ref": precision_support.ref},
@@ -320,12 +318,8 @@ def main(argv: list[str] | None = None) -> int:
         precision_support = load_fixture(
             "rocm-precision-support", args.fixtures_dir / "precision-support.rst", _blob_url(PRECISION_SUPPORT_PATH)
         )
-        libdrm_amdgpu_ids = load_fixture(
-            "libdrm-amdgpu-ids", args.fixtures_dir / "amdgpu.ids", _libdrm_blob_url()
-        )
-        llvm_amdgpu_usage = load_fixture(
-            "llvm-amdgpu-usage", args.fixtures_dir / "AMDGPUUsage.rst", _llvm_blob_url()
-        )
+        libdrm_amdgpu_ids = load_fixture("libdrm-amdgpu-ids", args.fixtures_dir / "amdgpu.ids", _libdrm_blob_url())
+        llvm_amdgpu_usage = load_fixture("llvm-amdgpu-usage", args.fixtures_dir / "AMDGPUUsage.rst", _llvm_blob_url())
         xdna_pciids = load_xdna_fixture(args.fixtures_dir)
     else:
         gpu_specs = fetch_source("rocm-gpu-specs", GPU_SPECS_PATH)

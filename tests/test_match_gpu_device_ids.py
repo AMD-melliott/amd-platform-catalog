@@ -46,9 +46,7 @@ def test_unmatched_product_left_unset():
 
 def test_graphics_model_preferred_over_product_name_for_matching():
     rows = [AmdgpuIdRow(device_id="1586", revision_id="c1", product_name="AMD Radeon 8060S Graphics")]
-    entries = [
-        {"product_name": "AMD Ryzen AI Max+ PRO 395", "graphics_model": "Radeon 8060S", "specs": {}}
-    ]
+    entries = [{"product_name": "AMD Ryzen AI Max+ PRO 395", "graphics_model": "Radeon 8060S", "specs": {}}]
     apply_device_ids(entries, rows)
     assert entries[0]["device_id"] == "1586"
 
