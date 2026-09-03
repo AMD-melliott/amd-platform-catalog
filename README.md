@@ -86,32 +86,32 @@ snapshots used by the test suite instead.
 
 ## Documentation site
 
-The Sphinx docs site under `docs/` is built on
-[rocm-docs-core](https://github.com/ROCm/rocm-docs-core) (theme flavor:
-`instinct-design`), published to GitHub Pages at
-<https://amd-melliott.github.io/amd-platform-catalog/>. Pages pull their
-content from this README and `PRD.md` via MyST `include` directives (whole
-file, or by section for the per-binding/skill pages) rather than
+The Sphinx docs site under `docs/` (theme: furo) is published to GitHub
+Pages at <https://amd-melliott.github.io/amd-platform-catalog/>. Pages pull
+their content from this README and `PRD.md` via MyST `include` directives
+(whole file, or by section for the per-binding/skill pages) rather than
 duplicating it, so the docs site and the in-repo docs can't drift apart:
 
 - `docs/overview.md` — this README's intro/status/layout/build/test sections
-- `docs/PRD.md` — the full PRD
 - `docs/bindings/{rust,python,go}.md` — one dedicated page per binding
 - `docs/agent-skill.md` — the agent skill
+- `docs/PRD.md` — the full PRD, built but deliberately left out of the site
+  navigation for now (marked `:orphan:`) while this is still a personal
+  project; `PRD.md` itself is unaffected
 
 Build it locally:
 
 ```bash
 uv sync --group docs
-uv run --group docs sphinx-build -b html docs docs/_build/html
+uv run --group docs sphinx-build -b html docs docs/_build/html -W
 ```
 
 `.github/workflows/docs.yml` builds and deploys it to GitHub Pages on every
-push to `main`. Expect one benign warning ("Current project ... not found
-in projects") — `rocm-docs-core`'s cross-project linking is scoped to the
-ROCm org's own docs family, which this standalone repo isn't part of;
-`external_projects = []` in `docs/conf.py` disables the linking itself, but
-not that one log line.
+push to `main`.
+
+A [rocm-docs-core](https://github.com/ROCm/rocm-docs-core) theme setup
+(flavor: `instinct-design`) is preserved on the `rocm-docs-core-theme`
+branch to switch back to later.
 
 ## Linting and CI
 
