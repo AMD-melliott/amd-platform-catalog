@@ -5,5 +5,12 @@
     "note": "precision_support is unset for this entry (RDNA3.5 has no column in ROCm's precision-support.rst), but even setting that gap aside, no one has hand-validated actual data-type support on real Strix Halo hardware yet. Treat any future precision_support value here as unconfirmed until it has been.",
     "validated_on": "2026-09-02",
     "validated_by": "matt.elliott@amd.com"
+  },
+  {
+    "device_id": "1586",
+    "field": "gfx_target",
+    "note": "Some ROCm/PyTorch builds don't correctly detect/bind to gfx1151 (Strix Halo) out of the box and instead behave as if the hardware were gfx1150 (RDNA3.5's other die), unless HSA_OVERRIDE_GFX_VERSION=11.5.1 is set explicitly to force correct recognition. Confirmed needed for the kyuz0/amd-strix-halo-comfyui container image on its ROCm/HIP path (its Vulkan llama-server path needs no override) and for TheRock's repo.amd.com gfx1151 release builds (rocm7.12/7.13) for init/matmul, though a separate comgr/MIOpen bug blocks conv on that build regardless. Not universal: AMD's official rocm/pytorch image, and a rocm7.13 PyTorch build (2.10.0+rocm7.13), already detect gfx1151 natively with no override needed. 11.5.1 corresponds to gfx1151's own major/minor/stepping values (specs.gfxip_major_version=11, gfxip_minor_version=5, gfxip_stepping_version=1), so setting it forces correct recognition of gfx1151 itself, not a masquerade as a different chip.",
+    "validated_on": "2026-09-04",
+    "validated_by": "matt.elliott@amd.com"
   }
 ]
