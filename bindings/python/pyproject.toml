@@ -2,7 +2,7 @@
 name = "amd-platform-catalog"
 version = "0.1.0"
 description = "Thin Python binding over the AMD Platform Catalog (embedded, no subprocess/live fetch)"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = []
 
 [dependency-groups]
