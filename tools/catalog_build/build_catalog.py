@@ -6,7 +6,7 @@ unambiguously (see match_gpu_device_ids.py); LLVM's AMDGPUUsage Processors
 table is ingested both as a build-time cross-check (see cross_check_llvm.py,
 emits warnings for generation mismatches and gfx_targets not yet in
 gpu-specs.rst) and as the source of GpuEntry.specs["gfxip_stepping_version"]
-(gpu-specs.rst has no stepping column of its own -- see
+(gpu-specs.rst has no stepping column of its own; see
 ingest_llvm_amdgpu_usage.stepping_from_subarch); amd/xdna-driver's own
 PCI ID table populates ``npus`` directly (see ingest_xdna_pciids.py -- family
 is left unset where the driver source itself provides no marketing name).
@@ -267,7 +267,7 @@ def build_catalog(
     # sourced from LLVM's subarch string instead. A gfx_target simply absent
     # from LLVM's table is already handled above (new_targets/mismatches);
     # only warn here when LLVM does know the target but its subarch string
-    # doesn't parse -- that's a real anomaly, not an expected gap.
+    # doesn't parse: that's a real anomaly, not an expected gap.
     llvm_by_gfx_target = {entry.gfx_target: entry for entry in llvm_entries}
     for entry in gpu_entries:
         llvm_entry = llvm_by_gfx_target.get(entry.get("gfx_target"))

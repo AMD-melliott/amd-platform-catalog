@@ -1,12 +1,12 @@
 """Empirically probes precision/data-type support on real AMD hardware.
 
 Unlike everything under tools/catalog_build/, this is NOT part of the
-offline ingestion pipeline -- it must run on a machine with a real AMD
+offline ingestion pipeline. It must run on a machine with a real AMD
 GPU, ROCm, and a ROCm build of PyTorch installed. It exists to help close
 PRD §10's "RDNA3.5 missing from precision-support.rst" gap (and any other
 generation/product ROCm's own doc hasn't caught up to yet) by producing
 real, on-hardware evidence a human can review before hand-authoring a
-catalog/notes.json entry (PRD §6.5) -- this script never writes to
+catalog/notes.json entry (PRD §6.5). This script never writes to
 notes.json itself, and its output is not a source of truth on its own.
 
 Tests the same data-type keys used in catalog.json's `precision_support`
@@ -14,14 +14,14 @@ object (see tools/catalog_build/ingest_rocm_precision_support.py's
 _TYPE_KEY_MAP) so results map directly onto that field.
 
 IMPORTANT CAVEAT: a "not supported" result here means this specific
-PyTorch build's operator kernels rejected the op on this GPU -- it is NOT
+PyTorch build's operator kernels rejected the op on this GPU. It is NOT
 proof the underlying ISA/silicon lacks the capability. ROCm's own
 precision-support.rst (what this project's `precision_support` field
 mirrors) describes HIP C++ type implementation support, a lower-level
 claim than "does today's PyTorch release ship a kernel for this." A
 "not supported" verdict here is a real, useful, on-hardware data point,
 but treat it as "this framework's operator coverage today", not as a
-substitute for that distinction -- say so plainly if you write a note
+substitute for that distinction. Say so plainly if you write a note
 from this, the same way the catalog itself never overstates a claim.
 
 Usage (from an environment with a ROCm PyTorch install, e.g. a venv
@@ -46,7 +46,7 @@ from pathlib import Path
 class ProbeSpec:
     catalog_key: str
     torch_dtype_names: tuple[str, ...]  # tried in order; first that exists on this torch build wins
-    kind: str  # "int" | "float" | "fp8" | "narrow" (fp4/fp6 -- existence/creation only, no compute-op test yet)
+    kind: str  # "int" | "float" | "fp8" | "narrow" (fp4/fp6: existence/creation only, no compute-op test yet)
 
 
 # Mirrors ingest_rocm_precision_support.py's _TYPE_KEY_MAP values exactly, so
@@ -72,7 +72,7 @@ PROBES: list[ProbeSpec] = [
 
 
 def _detect_pci_device_id(device_index: int) -> str | None:
-    """Best-effort only -- returns None on anything unexpected rather than
+    """Best-effort only: returns None on anything unexpected rather than
     guessing. Assumes amd-smi's GPU listing order matches torch's device
     index, which holds for a single-GPU box but isn't guaranteed on a
     multi-GPU system.
@@ -93,7 +93,7 @@ def _detect_pci_device_id(device_index: int) -> str | None:
 
 def _probe_numeric(torch, dtype, kind: str) -> tuple[bool, str]:
     """int/float kinds: create on GPU, elementwise add, and (float only) a
-    small matmul -- checked against the expected result, not just "did it
+    small matmul, checked against the expected result, not just "did it
     raise".
     """
     try:
@@ -120,7 +120,7 @@ def _probe_numeric(torch, dtype, kind: str) -> tuple[bool, str]:
 
 
 def _probe_fp8(torch, dtype) -> tuple[bool | None, str]:
-    """fp8 variants are storage-only types in PyTorch -- there's no generic
+    """fp8 variants are storage-only types in PyTorch: there's no generic
     elementwise op for them. The realistic vehicle for actually using one is
     torch._scaled_mm (the fused, hardware-accelerated GEMM path), so that's
     what's tested here, not a plain elementwise op.
@@ -143,7 +143,7 @@ def _probe_fp8(torch, dtype) -> tuple[bool | None, str]:
         return False, (
             "tensor create/cast ok, but torch._scaled_mm (the accelerated fp8 GEMM path) failed: "
             f"{type(e).__name__}: {e}. This reflects what THIS PyTorch BUILD's kernels support on "
-            "this GPU today, not necessarily the ISA/silicon's own native fp8 capability -- see the "
+            "this GPU today, not necessarily the ISA/silicon's own native fp8 capability. See the "
             "module docstring's caveat before turning this into a notes.json claim."
         )
 
@@ -151,14 +151,14 @@ def _probe_fp8(torch, dtype) -> tuple[bool | None, str]:
 def _probe_narrow(torch, dtype_name: str, dtype) -> tuple[bool | None, str]:
     """fp4/fp6 are brand-new, packed (sub-byte) formats with no standardized
     compute-op path across torch builds yet. Only existence + raw creation
-    is checked -- this is NOT a "supported" claim either way.
+    is checked; this is NOT a "supported" claim either way.
     """
     try:
         raw = torch.randint(0, 256, (4, 4), dtype=torch.uint8, device="cuda")
         _ = raw.view(dtype)
         return None, (
             f"torch.{dtype_name} exists and raw tensor creation succeeded, but this probe doesn't "
-            "exercise any compute op for it yet (too new/uncommon for a generic check) -- treat as "
+            "exercise any compute op for it yet (too new/uncommon for a generic check). Treat as "
             "untested, not confirmed supported."
         )
     except Exception as e:
@@ -200,7 +200,7 @@ def build_report() -> dict:
     except ImportError as e:
         raise SystemExit(
             "torch is not installed in this Python environment. This script needs a ROCm build of "
-            "PyTorch -- see https://pytorch.org/get-started/locally/ (select ROCm) -- installed "
+            "PyTorch (see https://pytorch.org/get-started/locally/, select ROCm), installed "
             "separately from this project's own uv-managed dependencies, which deliberately don't "
             "include it."
         ) from e
@@ -230,7 +230,7 @@ def build_report() -> dict:
 def _print_human_readable(report: dict) -> None:
     device = report["device"]
     print(f"Device:       {device['name']} ({device['gcn_arch_name']})")
-    print(f"PCI device_id: {device['pci_device_id'] or 'could not detect -- see script docstring'}")
+    print(f"PCI device_id: {device['pci_device_id'] or 'could not detect, see script docstring'}")
     print(f"PyTorch:      {report['torch_version']} (ROCm/HIP {report['hip_version']})")
     print(f"Probed at:    {report['probed_at']}")
     print()
@@ -242,7 +242,7 @@ def _print_human_readable(report: dict) -> None:
         print(f"      {result['detail']}")
     print()
     print(
-        "This is diagnostic output for a human to review, not an automatic source -- see the module\n"
+        "This is diagnostic output for a human to review, not an automatic source. See the module\n"
         "docstring's caveat about framework-level vs. ISA-level support before hand-authoring a\n"
         "catalog/notes.json entry (PRD §6.5 / CONTRIBUTING.md). Set real validated_by/validated_on\n"
         "yourself; this script does not write to notes.json."

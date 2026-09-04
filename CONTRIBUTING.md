@@ -52,7 +52,7 @@ that run *on* real AMD hardware to produce evidence for a hand-validated
 note, as opposed to `tools/catalog_build/`'s offline, document-parsing
 pipeline. They're not part of CI (some need packages, like a ROCm build of
 PyTorch, that this project's own dependencies deliberately don't include)
-and never write to `notes.json` themselves — a human still reviews the
+and never write to `notes.json` themselves. A human still reviews the
 output and writes the note.
 
 **Agent skill.** `skills/amd-platform-catalog/` follows the agentskills.io
