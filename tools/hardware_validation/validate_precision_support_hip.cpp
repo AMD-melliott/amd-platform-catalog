@@ -1,5 +1,5 @@
 // Empirically probes precision/data-type support on real AMD hardware, at
-// the HIP C++ compiler/type level -- a closer match to what ROCm's own
+// the HIP C++ compiler/type level: a closer match to what ROCm's own
 // precision-support.rst actually measures ("HIP C++ Type implementation
 // support") than the companion PyTorch-based script in this directory,
 // which instead measures a specific ML framework's operator/kernel
@@ -9,14 +9,14 @@
 // Every catalog precision_support key maps to a real HIP C++ type (the
 // same tokens ingest_rocm_precision_support.py's _TYPE_KEY_MAP uses), and
 // every one of those types exposes an explicit T(float) constructor plus
-// an explicit operator float() conversion -- so one generic template
+// an explicit operator float() conversion, so one generic template
 // covers all 15 types: construct from float on-device, convert back,
 // add, and check the result.
 //
 // KNOWN LIMITATION: some HIP headers (amd_hip_fp8.h) gate certain fp8
 // variants as host-only (not device-callable) depending on the *target*
 // GPU architecture being compiled for (see HIP_FP8_TYPE_FNUZ/
-// HIP_FP8_TYPE_OCP in that header) -- but only during the device
+// HIP_FP8_TYPE_OCP in that header), but only during the device
 // compilation pass; during the host pass both are unconditionally
 // enabled, so this can't be detected from host code in main(). This file
 // assumes every fp8 variant is device-usable, true for gfx1151 (Strix
@@ -26,7 +26,7 @@
 // targets. Compiling this for a target where one fp8 family is
 // host-only (e.g. gfx942/MI300, where OCP e4m3/e5m2 are host-only) will
 // fail to compile with a clear, specific error naming the offending
-// constructor -- a real, honest signal, just a compile failure rather
+// constructor: a real, honest signal, just a compile failure rather
 // than a clean per-type result. Extend with per-type preprocessor guards
 // if/when this needs to run on that class of hardware.
 //
@@ -58,7 +58,7 @@ __global__ void roundtrip_kernel(float a, float b, float* out) {
 }
 
 // Returns true iff the type compiled, launched, ran, and produced a
-// result within `tol` of `expected` -- not just "did it not crash".
+// result within `tol` of `expected`, not just "did it not crash".
 template <typename T>
 bool run_probe(const char* catalog_key, float a, float b, float expected, float tol) {
   float* d_out = nullptr;
@@ -121,7 +121,7 @@ int main() {
   if (!run_probe<double>("float64", 3, 4, 7, 1e-9f)) failures++;
 
   // Narrow float types: quantization error is expected and correct
-  // behavior, not a failure -- tolerances are generous on purpose.
+  // behavior, not a failure. Tolerances are generous on purpose.
   if (!run_probe<__hip_fp8_e4m3>("fp8_e4m3", 3, 4, 7, 1.5f)) failures++;
   if (!run_probe<__hip_fp8_e5m2>("fp8_e5m2", 3, 4, 7, 2.0f)) failures++;
   if (!run_probe<__hip_fp8_e4m3_fnuz>("fp8_e4m3_fnuz", 3, 4, 7, 1.5f)) failures++;
@@ -132,7 +132,7 @@ int main() {
 
   std::printf("\n%d/15 types passed the on-device construct+convert roundtrip.\n", 15 - failures);
   std::printf(
-      "This is diagnostic output for a human to review, not an automatic source -- a type passing\n"
+      "This is diagnostic output for a human to review, not an automatic source. A type passing\n"
       "here means it's usable on-device on this target, not that it's fast (this doesn't exercise\n"
       "accelerated matrix-core throughput at all). See catalog/notes.json / PRD section 6.5 /\n"
       "CONTRIBUTING.md before turning this into a hand-authored note; this program never writes to\n"
