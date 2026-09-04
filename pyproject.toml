@@ -33,11 +33,3 @@ package = false
 line-length = 120
 target-version = "py312"
 
-[tool.ruff.lint.per-file-ignores]
-# Deliberately broad: this is a diagnostic probe hitting brand-new,
-# experimental hardware/software combinations (fp4/fp6/fp8 dtypes on a
-# GPU generation PyTorch doesn't officially support yet) -- it must
-# report *any* failure as a result, not crash on an exception type this
-# module didn't anticipate.
-"tools/hardware_validation/validate_precision_support.py" = ["BLE001"]
-

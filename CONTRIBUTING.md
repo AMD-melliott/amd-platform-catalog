@@ -47,14 +47,6 @@ catalog. They expose the same method names and pass the same golden-value
 tests (MI300X, Strix Halo). If you change one binding's API shape, mirror the
 change in the other two, or explain in the PR why it doesn't apply.
 
-**Hardware validation scripts.** `tools/hardware_validation/` holds scripts
-that run *on* real AMD hardware to produce evidence for a hand-validated
-note, as opposed to `tools/catalog_build/`'s offline, document-parsing
-pipeline. They're not part of CI (some need packages, like a ROCm build of
-PyTorch, that this project's own dependencies deliberately don't include)
-and never write to `notes.json` themselves — a human still reviews the
-output and writes the note.
-
 **Agent skill.** `skills/amd-platform-catalog/` follows the agentskills.io
 specification. Its bundled snapshot (`assets/catalog.json`) is a real
 committed copy, not a symlink, so run `scripts/sync_catalog_snapshot.sh`

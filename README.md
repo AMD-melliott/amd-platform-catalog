@@ -61,7 +61,6 @@ tools/catalog_build/          Offline ingestion pipeline (Python)
   ingest_xdna_pciids.py
   build_catalog.py              Orchestrates all of the above -> catalog.json
   validate_schema.py
-tools/hardware_validation/    On-hardware probes feeding catalog/notes.json (PRD §6.5) -- not part of CI
 tests/                        pytest suite + pinned RST/C fixtures (offline)
 bindings/rust/                Thin Rust binding crate (embeds catalog.json)
 bindings/python/               Thin Python binding package (embeds catalog.json)
