@@ -5,6 +5,7 @@ description = "Versioned, cross-language catalog of AMD GPU/NPU platform facts"
 authors = [
     { name = "Matt Elliott", email = "matt.elliott@amd.com" }
 ]
+license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
     "docutils>=0.21",

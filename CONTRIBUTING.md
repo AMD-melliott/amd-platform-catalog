@@ -88,4 +88,4 @@ source: a reviewer needs to know how you verified it.
 
 ## License
 
-Not decided yet (see `PRD.md` §11); the project is currently leaning MIT.
+MIT. See [`LICENSE`](LICENSE).

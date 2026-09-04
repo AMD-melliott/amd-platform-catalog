@@ -1,6 +1,7 @@
 ---
 name: amd-platform-catalog
 description: Look up AMD GPU/NPU platform facts -- architecture generation, gfx/LLVM target, hardware specs, precision/data-type support, PCI device IDs, and hand-validated hardware notes -- from a versioned, sourced catalog. Use when asked what an AMD device ID is, what generation/gfx target a GPU is, whether a GPU supports a given precision/data type, whether an NPU exists for a given GPU device ID, or where a catalog fact is sourced from. Never guesses -- says plainly when a device isn't cataloged.
+license: MIT
 compatibility: Requires Python 3.9+ (standard library only, no dependencies)
 metadata:
   bundled_catalog_version: "0.1.0"
