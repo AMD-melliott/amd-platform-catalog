@@ -32,6 +32,17 @@ Some very new families (GFX11.7/"RDNA 4m", GFX13/RDNA5) have no citation at
 all yet; for those, the header's own parenthetical is used as a fallback
 generation label when it matches CDNA/RDNA naming -- exactly the "catch
 brand-new targets" case this source exists for.
+
+**Subarch string, for GFXIP stepping (PRD §6.3).** The table's "Target
+Triple Architecture" column (the *third* cell, not the mostly-empty
+"Alternative Processor" second cell, which holds unrelated codename aliases
+like ``carrizo``) gives a subarch string like ``amdgpu11.51`` for
+``gfx1151``, where the two characters after the dot are minor version +
+stepping concatenated. ``stepping_from_subarch`` extracts just the
+stepping character; build_catalog.py merges it onto GpuEntry.specs
+(gpu-specs.rst has no stepping column of its own to source it from).
+Stepping is usually a decimal digit, but two CDNA2 chips have a letter
+(``gfx90a`` -> ``amdgpu9.0a``, ``gfx90c`` -> ``amdgpu9.0c``).
 """
 
 from __future__ import annotations
@@ -49,12 +60,20 @@ _GFX_SEGMENT_RE = re.compile(r"^GFX([0-9A-Z]+)$")
 _PARENTHETICAL_RE = re.compile(r"\(([^)]+)\)")
 _MODERN_GENERATION_RE = re.compile(r"^(RDNA|CDNA)\s*([0-9]+(?:\.[0-9]+)?[a-z]?)$", re.IGNORECASE)
 
+# A subarch string like "amdgpu11.51" (gfx1151: minor "5", stepping "1") or
+# "amdgpu9.0a" (gfx90a: minor "0", stepping "a"). The two characters after
+# the dot are always minor+stepping concatenated; only the last one is the
+# stepping. Anything that doesn't match this shape returns no stepping --
+# never guessed.
+_SUBARCH_RE = re.compile(r"^amdgpu\d+\.([0-9a-z]{2})$", re.IGNORECASE)
+
 
 @dataclasses.dataclass(frozen=True)
 class ProcessorEntry:
     gfx_target: str
     family: str
     generation: str | None
+    subarch: str | None = None
 
 
 def _parse_citations(header_text: str) -> list[tuple[list[str], str | None]]:
@@ -103,6 +122,18 @@ def _resolve_generation(
     return best_generation if best_generation is not None else parenthetical_generation
 
 
+def stepping_from_subarch(subarch: str) -> str | None:
+    """Extracts the GFXIP stepping character from an LLVM subarch string
+    (see the module docstring). Returns None for anything that doesn't
+    match the expected `amdgpu<major>.<minor><stepping>` shape -- this
+    catalog never guesses a stepping it can't parse cleanly.
+    """
+    match = _SUBARCH_RE.match(subarch.strip())
+    if not match:
+        return None
+    return match.group(1)[-1].lower()
+
+
 def ingest(rst_text: str) -> list[ProcessorEntry]:
     tables = extract_list_tables(rst_text)
     table = next(t for t in tables if _PROCESSOR_TABLE_NAME in t.names)
@@ -127,6 +158,18 @@ def ingest(rst_text: str) -> list[ProcessorEntry]:
         if gfx_target.lower().startswith("gfx"):
             generation = _resolve_generation(gfx_target[3:].upper(), citations, paren_generation)
 
-        entries.append(ProcessorEntry(gfx_target=gfx_target, family=family_header, generation=generation))
+        # row[1] is "Alternative Processor" (codename aliases like
+        # "carrizo"; empty for virtually every modern chip), not what we
+        # want. row[2] is "Target Triple Architecture", the subarch string.
+        subarch = row[2].strip() if len(row) > 2 else ""
+
+        entries.append(
+            ProcessorEntry(
+                gfx_target=gfx_target,
+                family=family_header,
+                generation=generation,
+                subarch=subarch or None,
+            )
+        )
 
     return entries

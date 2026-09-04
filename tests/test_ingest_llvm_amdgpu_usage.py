@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from tools.catalog_build.ingest_llvm_amdgpu_usage import ingest
+from tools.catalog_build.ingest_llvm_amdgpu_usage import ingest, stepping_from_subarch
 
 FIXTURE = Path(__file__).parent / "fixtures" / "AMDGPUUsage.rst"
 
@@ -42,3 +42,27 @@ def test_brand_new_family_without_citation_falls_back_to_parenthetical():
 def test_pre_rdna_cdna_targets_have_no_generation():
     by_target = _by_target()
     assert by_target["r600"].generation is None
+
+
+def test_subarch_captured_from_target_triple_architecture_column():
+    by_target = _by_target()
+    assert by_target["gfx1151"].subarch == "amdgpu11.51"
+    assert by_target["gfx90a"].subarch == "amdgpu9.0a"
+
+
+def test_stepping_from_subarch_plain_digit():
+    assert stepping_from_subarch("amdgpu11.51") == "1"
+    assert stepping_from_subarch("amdgpu9.42") == "2"
+
+
+def test_stepping_from_subarch_letter_exception():
+    # gfx90a/gfx90c (CDNA2) are the only two chips with a non-decimal
+    # stepping character.
+    assert stepping_from_subarch("amdgpu9.0a") == "a"
+    assert stepping_from_subarch("amdgpu9.0c") == "c"
+
+
+def test_stepping_from_subarch_unparseable_returns_none():
+    assert stepping_from_subarch("") is None
+    assert stepping_from_subarch("carrizo") is None
+    assert stepping_from_subarch("amdgpu11") is None

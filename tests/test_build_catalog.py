@@ -55,6 +55,23 @@ def test_golden_entries_after_precision_join():
     assert mi100["precision_support"]["int64"] is True
 
 
+def test_gfxip_stepping_version_sourced_from_llvm_subarch():
+    # gpu-specs.rst has no stepping column; this is joined in from LLVM's
+    # AMDGPUUsage.rst subarch string instead (PRD §6.3).
+    catalog = _built_catalog()
+    by_name = {g["product_name"]: g for g in catalog["gpus"]}
+
+    mi300x = by_name["MI300X"]  # gfx942 -> amdgpu9.42
+    assert mi300x["specs"]["gfxip_stepping_version"] == "2"
+
+    strix_halo = by_name["AMD Ryzen AI Max+ PRO 395"]  # gfx1151 -> amdgpu11.51
+    assert strix_halo["specs"]["gfxip_stepping_version"] == "1"
+
+    # gfx90a (CDNA2) is one of the two chips with a non-decimal stepping.
+    mi250x = by_name["MI250X"]  # gfx90a -> amdgpu9.0a
+    assert mi250x["specs"]["gfxip_stepping_version"] == "a"
+
+
 def test_notes_default_to_empty_when_none_given():
     catalog = _built_catalog()
     assert catalog["notes"] == []
