@@ -37,6 +37,46 @@ level) -- a framework not shipping a kernel yet isn't proof the silicon
 can't do it. Say so plainly in any note you write from this, the same way
 the catalog itself never overstates a claim.
 
+## `validate_precision_support_hip.cpp` / `.sh`
+
+Tests the same 15 `precision_support` keys, but one level lower than the
+PyTorch script: a small HIP C++ program (`.cpp`, built and run by the
+`.sh` wrapper) that constructs each type from a `float` *on the GPU*,
+converts it back, adds two values, and checks the result -- exercising the
+HIP compiler/type system directly, which is exactly what
+`precision-support.rst`'s own "HIP C++ Type implementation support"
+framing measures, rather than any one ML framework's operator coverage.
+
+Requires `hipcc` (a ROCm/HIP install; not this project's own dependencies)
+and a real AMD GPU.
+
+```bash
+tools/hardware_validation/validate_precision_support_hip.sh
+```
+
+On Strix Halo (gfx1151), this currently shows all 15 types passing the
+on-device roundtrip -- including all four fp8 variants and both fp6
+variants, which the PyTorch script either couldn't test at all (fp6 has no
+matching dtype in most PyTorch builds) or reported as failing (fp8, via
+`torch._scaled_mm`'s own "ROCm MI300+ only" gate). The two results aren't
+contradictory: HIP's fp8 headers (`amd_hip_fp8.h`) explicitly gate certain
+fp8 variants as host-only depending on target architecture, and gfx1151
+falls into the "neither gfx942 nor gfx1200-class" bucket where both
+variant families stay device-usable -- so the type itself works on this
+hardware even though PyTorch's *accelerated GEMM kernel* for it doesn't
+exist yet on this architecture. Read both scripts' results together: HIP
+says the type is usable on-device; PyTorch says whether today's build has
+a fast kernel for it. Neither alone is the full picture.
+
+**Known limitation** (documented in the file): the fp8 host-vs-device
+gating is architecture-dependent at *compile* time, and this file assumes
+every fp8 variant is device-usable on the target it's compiled for. That
+holds for gfx1151 and older/generic targets, but compiling for gfx942
+(MI300) or gfx1200/1201-class hardware -- where HIP's own headers make the
+*other* fp8 family host-only -- will fail to compile with a specific,
+readable error rather than silently mis-reporting. Extend with per-type
+preprocessor guards if this needs to run on that class of hardware.
+
 ## Other candidates (not yet written)
 
 Suggested here rather than implemented, since each is its own scoped
