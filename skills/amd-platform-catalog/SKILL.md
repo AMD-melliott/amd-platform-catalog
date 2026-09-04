@@ -92,10 +92,10 @@ source backs which field group:
 
 | Source | Backs |
 |---|---|
-| `rocm-gpu-specs` | `product_name`, `graphics_model`, `generation`, `gfx_target`, `memory_model`, `specs` |
+| `rocm-gpu-specs` | `product_name`, `graphics_model`, `generation`, `gfx_target`, `memory_model`, `specs` (all keys except `gfxip_stepping_version`, see below) |
 | `rocm-precision-support` | `precision_support` |
 | `libdrm-amdgpu-ids` | `device_id` (joined onto the row above by normalized marketing name) |
-| `llvm-amdgpu-usage` | Cross-check only -- never changes a `GpuEntry` field directly |
+| `llvm-amdgpu-usage` | Cross-check (generation/gfx_target consistency) and `specs.gfxip_stepping_version` -- gpu-specs.rst has no stepping column, so this one key comes from LLVM's subarch string instead |
 | `xdna-driver-npu-pciids` | Everything under `npus` |
 
 A hand-authored note (via `notes`) is not sourced from any of the above --

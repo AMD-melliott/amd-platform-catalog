@@ -3,9 +3,11 @@
 Phase 0/1: gpu-specs.rst and precision-support.rst are ingested per Phase 0;
 libdrm's amdgpu.ids populates GpuEntry.device_id where the join resolves
 unambiguously (see match_gpu_device_ids.py); LLVM's AMDGPUUsage Processors
-table is ingested purely as a build-time cross-check (see cross_check_llvm.py)
--- it never adds/changes GpuEntry fields, only emits warnings for generation
-mismatches and gfx_targets not yet in gpu-specs.rst; amd/xdna-driver's own
+table is ingested both as a build-time cross-check (see cross_check_llvm.py,
+emits warnings for generation mismatches and gfx_targets not yet in
+gpu-specs.rst) and as the source of GpuEntry.specs["gfxip_stepping_version"]
+(gpu-specs.rst has no stepping column of its own -- see
+ingest_llvm_amdgpu_usage.stepping_from_subarch); amd/xdna-driver's own
 PCI ID table populates ``npus`` directly (see ingest_xdna_pciids.py -- family
 is left unset where the driver source itself provides no marketing name).
 The hand-maintained notes overlay (PRD §6.5) is loaded verbatim from
@@ -260,6 +262,26 @@ def build_catalog(
             f"which is not yet in gpu-specs.rst",
             file=sys.stderr,
         )
+
+    # gpu-specs.rst has no stepping column, so GFXIP stepping (PRD §6.3) is
+    # sourced from LLVM's subarch string instead. A gfx_target simply absent
+    # from LLVM's table is already handled above (new_targets/mismatches);
+    # only warn here when LLVM does know the target but its subarch string
+    # doesn't parse -- that's a real anomaly, not an expected gap.
+    llvm_by_gfx_target = {entry.gfx_target: entry for entry in llvm_entries}
+    for entry in gpu_entries:
+        llvm_entry = llvm_by_gfx_target.get(entry.get("gfx_target"))
+        if llvm_entry is None or llvm_entry.subarch is None:
+            continue
+        stepping = ingest_llvm_amdgpu_usage.stepping_from_subarch(llvm_entry.subarch)
+        if stepping is not None:
+            entry["specs"]["gfxip_stepping_version"] = stepping
+        else:
+            print(
+                f"warning: LLVM subarch {llvm_entry.subarch!r} for {entry.get('gfx_target')!r} "
+                f"doesn't parse as a GFXIP stepping (product {entry.get('product_name')!r})",
+                file=sys.stderr,
+            )
 
     npu_entries = []
     for row in npu_id_rows:
