@@ -242,4 +242,4 @@ catalog to resync the bundled snapshot.
 
 ## License
 
-Not yet decided (see `PRD.md` §11); leaning MIT.
+MIT. See [`LICENSE`](LICENSE).

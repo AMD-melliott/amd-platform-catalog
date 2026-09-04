@@ -371,8 +371,8 @@ script):
   designed, rather than guessed at now. There's also an interaction with
   the notes layer: does a note ever need its own validity window ("true as
   of catalog version X, before this device went EOS")? Not blocking v1.
-- License for the catalog + wrapper packages (leaning MIT to match general
-  ecosystem convention; not yet decided).
+- ~~License for the catalog + wrapper packages~~ (decided 2026-09-04: MIT,
+  matching general ecosystem convention; see repo-root `LICENSE`).
 - Update cadence / trigger for re-running ingestion (manual vs. watching
   upstream repos for changes; see the source-drift automation idea in §8).
 - Whether `specs`/`precision_support` should be included verbatim per

@@ -67,11 +67,10 @@ def test_compatibility_field_within_length_if_present():
         assert 1 <= len(compatibility) <= 500
 
 
-def test_license_field_not_asserted():
-    # PRD §11: the repo's license is still undecided -- SKILL.md must not
-    # assert one it doesn't have.
+def test_license_field_is_mit():
+    # PRD §11: decided 2026-09-04, see repo-root LICENSE.
     frontmatter, _ = _load_skill_md()
-    assert "license" not in frontmatter
+    assert frontmatter.get("license") == "MIT"
 
 
 def test_metadata_is_a_string_to_string_map_if_present():
