@@ -19,10 +19,11 @@ Source: <https://github.com/AMD-melliott/amd-platform-catalog>
 :maxdepth: 2
 
 overview
+agent-skill
 bindings/rust
 bindings/python
 bindings/go
-agent-skill
+development
 ```
 
 ## Overview
@@ -34,14 +35,18 @@ agent-skill
 - {doc}`/overview`
 :::
 
+:::{grid-item-card} Agent skill
+- {doc}`/agent-skill`
+:::
+
 :::{grid-item-card} Bindings
 - {doc}`/bindings/rust`
 - {doc}`/bindings/python`
 - {doc}`/bindings/go`
 :::
 
-:::{grid-item-card} Agent skill
-- {doc}`/agent-skill`
+:::{grid-item-card} Development
+- {doc}`/development`
 :::
 
 ::::

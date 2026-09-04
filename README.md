@@ -7,37 +7,113 @@ authoritative public sources, so any tool (Rust, Python, Go, or an AI agent)
 can answer "what is this device, and what can it do" without re-deriving the
 answer itself.
 
+AMD already publishes this information, spread across ROCm's docs, LLVM's
+target tables, and driver source trees. Nothing pulls it together for direct
+use, so tools that need it tend to re-derive the same facts one hardcoded
+case at a time. This catalog does that work once: mechanically sourced where
+possible, with a small hand-maintained notes layer for the handful of facts
+only real hardware testing can confirm.
+
 See [`PRD.md`](PRD.md) for the full design: problem statement, data model,
 sourcing decisions, and phased implementation plan. This README covers how
 to build and use what's here today.
 
-## Status
+## Using the agent skill
 
-Phase 0 and Phase 1 of the PRD's phased plan are done: `catalog.json` is at
-`v0.1.0`, built from five sources with real pinned provenance (commit SHAs,
-not just fetch dates):
+If you're working with an AI coding agent, this is the fastest way in.
+`skills/amd-platform-catalog/` follows the
+[agentskills.io specification](https://agentskills.io/specification) and is
+installable with [vercel-labs/skills](https://github.com/vercel-labs/skills):
 
-| Source | Feeds |
-|---|---|
-| ROCm `gpu-specs.rst` | GPU identity, generation, gfx target, hardware specs |
-| ROCm `precision-support.rst` | Per-generation data-type support |
-| `libdrm`'s `amdgpu.ids` | GPU `device_id` (joined by marketing name) |
-| LLVM's `AMDGPUUsage.rst` | Build-time cross-check only: flags gfx_target/generation mismatches and brand-new targets ROCm hasn't caught up to yet |
-| `amd/xdna-driver`'s own PCI ID table | NPU identity and hardware generation |
+```bash
+npx skills add AMD-melliott/amd-platform-catalog
+```
 
-Current catalog: 44 GPU entries, 19 NPU entries, plus a hand-maintained
-notes overlay (`catalog/notes.json`) starting with one entry (Strix Halo's
-`precision_support` gap). Thin bindings exist for Rust (`bindings/rust/`),
-Python (`bindings/python/`), and Go (`bindings/go/`). All three expose the
+or read `skills/amd-platform-catalog/SKILL.md` directly. It ships a
+dependency-free Python CLI (`scripts/catalog_lookup.py`) over a bundled
+catalog snapshot (`assets/catalog.json`, a real copy, not a symlink,
+since a tool that installs only this skill's subdirectory wouldn't bring a
+symlink's target along). Same lookups, same notes-overlay behavior, same
+golden values as the three language bindings below:
+
+```bash
+cd skills/amd-platform-catalog
+python3 scripts/catalog_lookup.py resolve 74a1   # MI300X, notes overlay applied
+python3 scripts/catalog_lookup.py npu 17f0       # NPU4/5/6 share this PCI ID
+```
+
+Run `scripts/sync_catalog_snapshot.sh` after regenerating the canonical
+catalog to resync the bundled snapshot.
+
+## Language bindings
+
+Rust, Python, and Go each get a thin wrapper that embeds the catalog
+directly: no FFI, no subprocess, no network access. All three expose the
 same typed lookups and agree on the same golden values (MI300X, Strix Halo).
-An agent skill (`skills/amd-platform-catalog/`) exposes the same lookups to
-an AI coding agent via a dependency-free CLI script.
 
-**Known, documented gaps** (not oversights; see `PRD.md` for the full
-writeup of each): a handful of GPU `device_id`s are ambiguous or unmatched by
-`amdgpu.ids`; RDNA3.5 has no column in ROCm's precision-support table; NPU
-`family` is unset wherever `amd/xdna-driver` itself can't statically
-disambiguate a marketing name from a PCI ID alone.
+### Rust binding
+
+```bash
+cd bindings/rust
+cargo test
+```
+
+```rust
+use amd_platform_catalog::Catalog;
+
+let catalog = Catalog::embedded();
+let mi300x = catalog.gpu_by_device_id("74a1").unwrap();
+assert_eq!(mi300x.generation, "CDNA3");
+
+let strix_halo_npus = catalog.npus_by_device_id("17f0");
+assert_eq!(strix_halo_npus.len(), 3); // NPU4/5/6 share this PCI ID
+```
+
+The catalog JSON is embedded in the crate at compile time via `include_str!`.
+
+### Python binding
+
+```bash
+cd bindings/python
+uv run pytest
+```
+
+```python
+from amd_platform_catalog import Catalog
+
+catalog = Catalog.embedded()
+mi300x = catalog.gpu_by_device_id("74a1")
+assert mi300x.generation == "CDNA3"
+
+strix_halo_npus = catalog.npus_by_device_id("17f0")
+assert len(strix_halo_npus) == 3  # NPU4/5/6 share this PCI ID
+```
+
+`catalog.json` is a symlink into `catalog/catalog.json` (the actual file
+package data reads from), packaged alongside the module.
+
+### Go binding
+
+```bash
+cd bindings/go
+go test ./...
+```
+
+```go
+import catalog "github.com/AMD-melliott/amd-platform-catalog/bindings/go"
+
+c := catalog.Embedded()
+mi300x := c.GPUByDeviceID("74a1")
+// mi300x.Generation == "CDNA3"
+
+strixHaloNPUs := c.NPUsByDeviceID("17f0")
+// len(strixHaloNPUs) == 3, NPU4/5/6 share this PCI ID
+```
+
+Unlike the Rust and Python bindings, `bindings/go/catalog.json` is a real
+committed copy of `catalog/catalog.json`, not a symlink. Go's `//go:embed`
+refuses to embed symlinks at all. Run `go generate ./...` in `bindings/go/`
+after regenerating the canonical catalog to resync it.
 
 ## Repository layout
 
@@ -85,34 +161,19 @@ precision data, cross-source generation mismatches, brand-new LLVM targets).
 Pass `--fixtures-dir tests/fixtures` to build offline from the pinned
 snapshots used by the test suite instead.
 
-## Documentation site
-
-The Sphinx docs site under `docs/` (theme: furo) is published to GitHub
-Pages at <https://amd-melliott.github.io/amd-platform-catalog/>. Pages pull
-their content from this README and `PRD.md` via MyST `include` directives
-(whole file, or by section for the per-binding/skill pages) rather than
-duplicating it, so the docs site and the in-repo docs can't drift apart:
-
-- `docs/overview.md`: this README's intro/status/layout/build/test sections
-- `docs/bindings/{rust,python,go}.md`: one dedicated page per binding
-- `docs/agent-skill.md`: the agent skill
-- `docs/PRD.md`: the full PRD, built but deliberately left out of the site
-  navigation for now (marked `:orphan:`) while this is still a personal
-  project; `PRD.md` itself is unaffected
-
-Build it locally:
+## Running the tests
 
 ```bash
-uv sync --group docs
-uv run --group docs sphinx-build -b html docs docs/_build/html -W
+uv run python -m pytest tests/
 ```
 
-`.github/workflows/docs.yml` builds and deploys it to GitHub Pages on every
-push to `main`.
-
-A [rocm-docs-core](https://github.com/ROCm/rocm-docs-core) theme setup
-(flavor: `instinct-design`) is preserved on the `rocm-docs-core-theme`
-branch to switch back to later.
+57 tests. Ingestion round-trips are checked against pinned fixtures for
+every source, along with schema-conformance and golden-entry checks (MI300X,
+Strix Halo) confirming the resolved catalog entries match hand-verified
+values exactly. `test_skill.py` validates `skills/amd-platform-catalog/`
+against the agentskills.io spec (frontmatter format, file references,
+line-count limit) and exercises its lookup script against the same golden
+values.
 
 ## Linting and CI
 
@@ -134,111 +195,35 @@ tripwire, and (on PRs) a dependency-vulnerability review;
 `.github/dependabot.yml` opens weekly update PRs for every ecosystem in this
 repo (`uv`, `cargo`, `gomod`, `github-actions`).
 
-## Running the tests
+## Documentation site
+
+The Sphinx docs site under `docs/` (theme: furo) is published to GitHub
+Pages at <https://amd-melliott.github.io/amd-platform-catalog/>. Pages pull
+their content from this README and `PRD.md` via MyST `include` directives
+(whole file, or by section for the per-binding/skill pages) rather than
+duplicating it, so the docs site and the in-repo docs can't drift apart:
+
+- `docs/overview.md`: this README's opening (what and why)
+- `docs/agent-skill.md`: the agent skill
+- `docs/bindings/{rust,python,go}.md`: one dedicated page per binding
+- `docs/development.md`: repository layout, building, testing, linting/CI
+- `docs/PRD.md`: the full PRD, built but deliberately left out of the site
+  navigation for now (marked `:orphan:`) while this is still a personal
+  project; `PRD.md` itself is unaffected
+
+Build it locally:
 
 ```bash
-uv run python -m pytest tests/
+uv sync --group docs
+uv run --group docs sphinx-build -b html docs docs/_build/html -W
 ```
 
-57 tests. Ingestion round-trips are checked against pinned fixtures for
-every source, along with schema-conformance and golden-entry checks (MI300X,
-Strix Halo) confirming the resolved catalog entries match hand-verified
-values exactly. `test_skill.py` validates `skills/amd-platform-catalog/`
-against the agentskills.io spec (frontmatter format, file references,
-line-count limit) and exercises its lookup script against the same golden
-values.
+`.github/workflows/docs.yml` builds and deploys it to GitHub Pages on every
+push to `main`.
 
-## Using the Rust binding
-
-```bash
-cd bindings/rust
-cargo test
-```
-
-```rust
-use amd_platform_catalog::Catalog;
-
-let catalog = Catalog::embedded();
-let mi300x = catalog.gpu_by_device_id("74a1").unwrap();
-assert_eq!(mi300x.generation, "CDNA3");
-
-let strix_halo_npus = catalog.npus_by_device_id("17f0");
-assert_eq!(strix_halo_npus.len(), 3); // NPU4/5/6 share this PCI ID
-```
-
-No FFI, no subprocess, no shared native runtime. The catalog JSON is
-embedded in the crate at compile time via `include_str!`.
-
-## Using the Python binding
-
-```bash
-cd bindings/python
-uv run pytest
-```
-
-```python
-from amd_platform_catalog import Catalog
-
-catalog = Catalog.embedded()
-mi300x = catalog.gpu_by_device_id("74a1")
-assert mi300x.generation == "CDNA3"
-
-strix_halo_npus = catalog.npus_by_device_id("17f0")
-assert len(strix_halo_npus) == 3  # NPU4/5/6 share this PCI ID
-```
-
-`catalog.json` is a symlink into `catalog/catalog.json` (the actual file
-package data reads from), packaged alongside the module. No live fetch, no
-network access.
-
-## Using the Go binding
-
-```bash
-cd bindings/go
-go test ./...
-```
-
-```go
-import catalog "github.com/AMD-melliott/amd-platform-catalog/bindings/go"
-
-c := catalog.Embedded()
-mi300x := c.GPUByDeviceID("74a1")
-// mi300x.Generation == "CDNA3"
-
-strixHaloNPUs := c.NPUsByDeviceID("17f0")
-// len(strixHaloNPUs) == 3, NPU4/5/6 share this PCI ID
-```
-
-Unlike the Rust and Python bindings, `bindings/go/catalog.json` is a real
-committed copy of `catalog/catalog.json`, not a symlink. Go's `//go:embed`
-refuses to embed symlinks at all. Run `go generate ./...` in `bindings/go/`
-after regenerating the canonical catalog to resync it.
-
-## Using the agent skill
-
-`skills/amd-platform-catalog/` follows the
-[agentskills.io specification](https://agentskills.io/specification) and is
-installable with [vercel-labs/skills](https://github.com/vercel-labs/skills):
-
-```bash
-npx skills add AMD-melliott/amd-platform-catalog
-```
-
-or read `skills/amd-platform-catalog/SKILL.md` directly. It ships a
-dependency-free Python CLI (`scripts/catalog_lookup.py`) over a bundled
-catalog snapshot (`assets/catalog.json`, a real copy, not a symlink,
-since a tool that installs only this skill's subdirectory wouldn't bring a
-symlink's target along). Same lookups, same notes-overlay behavior, same
-golden values as the three language bindings above:
-
-```bash
-cd skills/amd-platform-catalog
-python3 scripts/catalog_lookup.py resolve 74a1   # MI300X, notes overlay applied
-python3 scripts/catalog_lookup.py npu 17f0       # NPU4/5/6 share this PCI ID
-```
-
-Run `scripts/sync_catalog_snapshot.sh` after regenerating the canonical
-catalog to resync the bundled snapshot.
+A [rocm-docs-core](https://github.com/ROCm/rocm-docs-core) theme setup
+(flavor: `instinct-design`) is preserved on the `rocm-docs-core-theme`
+branch to switch back to later.
 
 ## License
 

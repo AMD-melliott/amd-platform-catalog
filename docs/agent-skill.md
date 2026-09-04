@@ -2,5 +2,5 @@
 
 ```{include} ../README.md
 :start-after: "## Using the agent skill"
-:end-before: "## License"
+:end-before: "## Language bindings"
 ```
