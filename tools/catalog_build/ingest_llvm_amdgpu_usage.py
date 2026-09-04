@@ -63,7 +63,7 @@ _MODERN_GENERATION_RE = re.compile(r"^(RDNA|CDNA)\s*([0-9]+(?:\.[0-9]+)?[a-z]?)$
 # A subarch string like "amdgpu11.51" (gfx1151: minor "5", stepping "1") or
 # "amdgpu9.0a" (gfx90a: minor "0", stepping "a"). The two characters after
 # the dot are always minor+stepping concatenated; only the last one is the
-# stepping. Anything that doesn't match this shape returns no stepping --
+# stepping. Anything that doesn't match this shape returns no stepping,
 # never guessed.
 _SUBARCH_RE = re.compile(r"^amdgpu\d+\.([0-9a-z]{2})$", re.IGNORECASE)
 
@@ -125,7 +125,7 @@ def _resolve_generation(
 def stepping_from_subarch(subarch: str) -> str | None:
     """Extracts the GFXIP stepping character from an LLVM subarch string
     (see the module docstring). Returns None for anything that doesn't
-    match the expected `amdgpu<major>.<minor><stepping>` shape -- this
+    match the expected `amdgpu<major>.<minor><stepping>` shape: this
     catalog never guesses a stepping it can't parse cleanly.
     """
     match = _SUBARCH_RE.match(subarch.strip())

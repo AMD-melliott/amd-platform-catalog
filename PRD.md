@@ -114,7 +114,7 @@ have).
 | `product_name` | string | yes | Marketing product name. |
 | `graphics_model` | string | no | Graphics-specific model name where distinct from `product_name` (APUs), e.g. `"Radeon 8060S"`. |
 | `memory_model` | enum: `dedicated`, `unified` | yes | High-level memory architecture. |
-| `specs` | object (open-ended, sourced verbatim from `gpu-specs.rst` columns, plus one LLVM-sourced key -- see callout below) | no | Compute units, VRAM, cache sizes, etc. Shape varies by product family. |
+| `specs` | object (open-ended, sourced verbatim from `gpu-specs.rst` columns, plus one LLVM-sourced key; see callout below) | no | Compute units, VRAM, cache sizes, etc. Shape varies by product family. |
 | `precision_support` | object (open-ended booleans keyed by data-type name) | no | Per-type native-support flags sourced from `precision-support.rst`, joined by `generation`. |
 | `lifecycle_status` | enum: `active`, `eos`, `unknown` | yes (defaults `unknown`) | Whether AMD has marked this product retired/end-of-service. See open question in §11. |
 
